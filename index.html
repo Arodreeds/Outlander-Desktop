@@ -419,7 +419,7 @@
         .state-show.next .ss-tag { color: var(--heather-glow); }
 
         .route-line { fill: none; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; transition: stroke 0.5s ease, filter 0.5s ease; }
-        .route-upcoming { stroke: var(--gray-upcoming); stroke-dasharray: 5, 7; opacity: 0.45; }
+        .route-upcoming { stroke: var(--gray-upcoming); stroke-width: 1.5; stroke-dasharray: 5, 7; opacity: 0.45; }
         .route-current { stroke: var(--heather-glow); stroke-width: 4; filter: drop-shadow(0 0 6px rgba(181,143,214,0.7)); }
         .route-completed { stroke: var(--moss-glow); stroke-width: 3.5; filter: drop-shadow(0 0 4px rgba(87,201,141,0.5)); }
         .route-gold { stroke: var(--gold-glow) !important; stroke-width: 4 !important; filter: drop-shadow(0 0 8px var(--gold-glow)) !important; }
@@ -583,7 +583,8 @@
             background: rgba(123,90,151,0.14); transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,0.3);
         }
         .timeline-item.fav::before { content: "\2605"; position: absolute; top: 8px; left: 10px; color: var(--gold-glow); font-size: 0.8rem; }
-        .timeline-item.dim-search, .timeline-item.dim-filter { opacity: 0.12; }
+        .timeline-item.dim-search { opacity: 0.12; }
+        .timeline-item.filter-hidden { display: none; }
 
         /* Filter chips above the timeline */
         .filter-bar {
@@ -804,6 +805,17 @@
         .gallery-card { border-radius: var(--radius); overflow: hidden; background: #0f1512; border: 1px solid #33414b; }
         .gallery-card img { width: 100%; height: 120px; object-fit: cover; display: block; }
         .gallery-card .cap { padding: 7px 9px; font-size: 0.78rem; color: var(--parchment-dim); }
+
+        /* Receipts */
+        .receipt-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
+        .receipt-thumb { position: relative; border-radius: var(--radius); overflow: hidden; background: #0f1512; border: 1px solid #33414b; }
+        .receipt-thumb img { width: 100%; height: 70px; object-fit: cover; display: block; cursor: pointer; }
+        .receipt-remove {
+            position: absolute; top: 2px; right: 2px; width: 18px; height: 18px; line-height: 16px;
+            border-radius: 50%; border: none; background: rgba(15,21,18,0.8); color: var(--parchment);
+            font-size: 0.85rem; cursor: pointer; padding: 0;
+        }
+        .receipt-remove:hover { background: var(--tartan-red); color: #fff; }
 
         /* Recap card */
         #recap-card {
@@ -1329,11 +1341,12 @@
             <button type="button" onclick="clearStateFocus(true)">Full map</button>
         </div>
 
-        <div class="zoom-controls" role="group" aria-label="Map zoom controls">
+        <div class="zoom-controls" role="group" aria-label="Map controls">
             <button type="button" id="zoom-in" aria-label="Zoom in" onclick="zoomIn()">+</button>
             <div id="zoom-level" aria-live="polite">210%</div>
             <button type="button" id="zoom-out" aria-label="Zoom out" onclick="zoomOut()">−</button>
             <button type="button" id="zoom-reset" aria-label="Recenter on Saxbyte" title="Recenter on Saxbyte" onclick="recenterCamera()">◎</button>
+            <button type="button" id="replay-route" aria-label="Replay route from start" title="Replay route from start" onclick="replayRouteFromStart()">▶</button>
         </div>
 
         <!-- Travel progress, shown while Saxbyte walks to the next city -->
@@ -1426,11 +1439,17 @@
         <button type="button" class="chip" data-filter="upcoming" onclick="setTimelineFilter('upcoming')">Upcoming<span class="chip-n" id="cn-upcoming"></span></button>
         <button type="button" class="chip" data-filter="played" onclick="setTimelineFilter('played')">Played<span class="chip-n" id="cn-played"></span></button>
         <button type="button" class="chip" data-filter="fav" onclick="setTimelineFilter('fav')">★ Favorites<span class="chip-n" id="cn-fav"></span></button>
+        <span class="fb-label">Region</span>
+        <button type="button" class="chip" data-filter="West" onclick="setTimelineFilter('West')">West<span class="chip-n" id="cn-west"></span></button>
+        <button type="button" class="chip" data-filter="Midwest" onclick="setTimelineFilter('Midwest')">Midwest<span class="chip-n" id="cn-midwest"></span></button>
+        <button type="button" class="chip" data-filter="South" onclick="setTimelineFilter('South')">South<span class="chip-n" id="cn-south"></span></button>
+        <button type="button" class="chip" data-filter="Northeast" onclick="setTimelineFilter('Northeast')">Northeast<span class="chip-n" id="cn-northeast"></span></button>
         <button type="button" class="chip" data-filter="state" id="chip-state" onclick="setTimelineFilter('state')" style="display:none"></button>
     </div>
 
     <div class="timeline-wrap">
         <div class="timeline" id="timeline"></div>
+        <p class="empty-note" id="timeline-empty" style="display:none; margin-top:14px;">No shows match this filter.</p>
     </div>
 
     <!-- City Detail Panel -->
@@ -1498,6 +1517,18 @@
                     <div><label>Food</label><input type="number" min="0" step="1" class="expense-input" id="exp-food" placeholder="0"></div>
                     <div><label>Drink</label><input type="number" min="0" step="1" class="expense-input" id="exp-drink" placeholder="0"></div>
                 </div>
+            </div>
+
+            <div class="form-group">
+                <label>Expense Notes</label>
+                <textarea id="panel-expense-notes" rows="2" placeholder="e.g. mileage, lodging, per diem, parking…"></textarea>
+            </div>
+
+            <div class="form-group">
+                <label>Receipts</label>
+                <div class="receipt-grid" id="panel-receipts"></div>
+                <button type="button" class="btn btn-ghost" style="margin-top:8px" onclick="document.getElementById('receipt-upload').click()">Upload Receipt(s)</button>
+                <input type="file" id="receipt-upload" style="display:none" accept="image/*" multiple onchange="handleReceiptUpload(event)">
             </div>
 
             <span class="section-label">Social Media Checklist</span>
@@ -1842,6 +1873,64 @@
                 async get(k) { const d = await db(); return new Promise((res, rej) => { const t = d.transaction('photos', 'readonly'); const rq = t.objectStore('photos').get(k); rq.onsuccess = () => res(rq.result || null); rq.onerror = () => rej(rq.error); }); },
                 async del(k) { const d = await db(); return new Promise((res) => { const t = d.transaction('photos', 'readwrite'); t.objectStore('photos').delete(k); t.oncomplete = res; }); },
                 async all() { const d = await db(); return new Promise((res) => { const out = {}; const t = d.transaction('photos', 'readonly'); t.objectStore('photos').openCursor().onsuccess = e => { const c = e.target.result; if (c) { out[c.key] = c.value; c.continue(); } else res(out); }; }); }
+            };
+        })();
+
+        /* ---------- Receipt store — same idea as PhotoStore, but many-per-city ----------
+           Electron saves real files into <saveFolder>/receipts/<cityId>/. The plain-browser
+           IndexedDB fallback keys each record as "cityId::receiptId" and range-scans by
+           city prefix, since one object store can't easily group by a second field. */
+        const ReceiptStore = window.electronReceipts || (() => {
+            let dbp;
+            function db() {
+                if (!dbp) dbp = new Promise((res, rej) => {
+                    const r = indexedDB.open('outlanderReceipts', 1);
+                    r.onupgradeneeded = () => r.result.createObjectStore('receipts');
+                    r.onsuccess = () => res(r.result);
+                    r.onerror = () => rej(r.error);
+                });
+                return dbp;
+            }
+            return {
+                async add(cityId, dataUri) {
+                    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+                    const d = await db();
+                    await new Promise((res, rej) => { const t = d.transaction('receipts', 'readwrite'); t.objectStore('receipts').put(dataUri, `${cityId}::${id}`); t.oncomplete = res; t.onerror = () => rej(t.error); });
+                    return { id };
+                },
+                async list(cityId) {
+                    const d = await db();
+                    return new Promise((res) => {
+                        const out = [];
+                        const range = IDBKeyRange.bound(`${cityId}::`, `${cityId}::￿`);
+                        const t = d.transaction('receipts', 'readonly');
+                        t.objectStore('receipts').openCursor(range).onsuccess = e => {
+                            const c = e.target.result;
+                            if (c) { out.push({ id: String(c.key).slice(cityId.length + 2), dataUri: c.value }); c.continue(); }
+                            else res(out);
+                        };
+                    });
+                },
+                async del(cityId, id) {
+                    const d = await db();
+                    return new Promise((res) => { const t = d.transaction('receipts', 'readwrite'); t.objectStore('receipts').delete(`${cityId}::${id}`); t.oncomplete = res; });
+                },
+                async all() {
+                    const d = await db();
+                    return new Promise((res) => {
+                        const out = {};
+                        const t = d.transaction('receipts', 'readonly');
+                        t.objectStore('receipts').openCursor().onsuccess = e => {
+                            const c = e.target.result;
+                            if (c) {
+                                const sep = String(c.key).indexOf('::');
+                                const cityId = String(c.key).slice(0, sep), id = String(c.key).slice(sep + 2);
+                                (out[cityId] = out[cityId] || []).push({ id, dataUri: c.value });
+                                c.continue();
+                            } else res(out);
+                        };
+                    });
+                }
             };
         })();
 
@@ -2883,7 +2972,12 @@
             wrapper.style.transform = `translate(${transX}px, ${transY}px) scale(${viewScale})`;
         }
 
-        function walkSaxbyteAlong(fromStop, toStop) {
+        /* opts.durationMs overrides TRAVEL_MS for this one leg (used by the route
+           replay, which plays back faster than a live walk); opts.onDone fires
+           once the leg finishes, so callers can chain multiple legs in sequence. */
+        function walkSaxbyteAlong(fromStop, toStop, opts) {
+            const durationMs = (opts && opts.durationMs) || TRAVEL_MS;
+            const onDone = (opts && opts.onDone) || (() => {});
             cancelWalk();
             pendingWalkRouteId = null;
             cameraTakenOver = false;
@@ -2903,6 +2997,7 @@
                 vanishLagMarker(toStop.id);
                 if (walkTargetId === toStop.id) walkTargetId = null;
                 if (state.settings.autoCamera) centerCameraOnLag(toStop);
+                onDone();
                 return;
             }
 
@@ -2918,7 +3013,7 @@
             const easeInOut = t => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
 
             const step = now => {
-                const raw = Math.min((now - startTime) / TRAVEL_MS, 1);
+                const raw = Math.min((now - startTime) / durationMs, 1);
                 const prog = easeInOut(raw);
                 const pt = routePath.getPointAtLength(prog * totalLen);
 
@@ -2937,9 +3032,47 @@
                     if (walkTargetId === toStop.id) walkTargetId = null;
                     hideTravelHud();
                     if (state.settings.autoCamera && !cameraTakenOver) centerCameraOnLag(toStop);
+                    onDone();
                 }
             };
             walkRAF = requestAnimationFrame(step);
+        }
+
+        /* ---------------- ROUTE REPLAY ----------------
+           Plays Saxbyte's whole journey so far, leg by leg, from the first stop
+           up to wherever he actually stands now. Purely cosmetic recap — it
+           re-walks already-completed legs at a brisk fixed pace regardless of
+           the user's Journey Pace setting, then leaves him exactly where the
+           real state already had him. */
+        const REPLAY_LEG_MS = 900;
+        let replayActive = false;
+        function replayRouteFromStart() {
+            if (replayActive) return;
+            const curIdx = firstIncompleteIndex();
+            if (curIdx === 0) { showToast('Nothing completed yet — nothing to replay.', 'warn'); return; }
+
+            replayActive = true;
+            const btn = document.getElementById('replay-route');
+            if (btn) btn.disabled = true;
+            cancelWalk();
+
+            const startStop = tourData[0];
+            document.getElementById('lag-container').setAttribute('transform', `translate(${startStop.x}, ${startStop.y})`);
+            if (state.settings.autoCamera) centerCameraOnLag(startStop);
+
+            let i = 0;
+            const playNextLeg = () => {
+                if (i >= curIdx) {
+                    replayActive = false;
+                    if (btn) btn.disabled = false;
+                    updateLagPosition();
+                    return;
+                }
+                const from = tourData[i], to = tourData[i + 1];
+                i++;
+                walkSaxbyteAlong(from, to, { durationMs: REPLAY_LEG_MS, onDone: playNextLeg });
+            };
+            playNextLeg();
         }
 
         /* The little "on the road" card that tracks the walk. */
@@ -3676,25 +3809,32 @@
                 case 'upcoming': return !state.completedCities.includes(stop.id);
                 case 'fav':      return !!(state.cityDetails[stop.id] && state.cityDetails[stop.id].favorite);
                 case 'state':    return focusedStateId ? stop.stateId === focusedStateId : true;
+                case 'West': case 'Midwest': case 'South': case 'Northeast':
+                    return REGION_OF[stop.stateId] === timelineFilter;
                 default:         return true;
             }
         }
 
         function applyTimelineFilter() {
+            let visibleCount = 0;
             document.querySelectorAll('.timeline-item').forEach(it => {
                 const stop = tourData.find(s => s.id === it.dataset.id);
-                it.classList.toggle('dim-filter', !!stop && !matchesFilter(stop));
+                const hidden = !!stop && !matchesFilter(stop);
+                it.classList.toggle('filter-hidden', hidden);
+                if (!hidden) visibleCount++;
             });
             document.querySelectorAll('.filter-bar .chip').forEach(c => {
                 c.classList.toggle('active', c.dataset.filter === timelineFilter);
             });
+            const empty = document.getElementById('timeline-empty');
+            if (empty) empty.style.display = visibleCount ? 'none' : 'block';
         }
 
         function setTimelineFilter(f) {
             timelineFilter = f;
             applyTimelineFilter();
             // Scroll to the first visible card so the filter feels like it did something
-            const first = document.querySelector('.timeline-item:not(.dim-filter)');
+            const first = document.querySelector('.timeline-item:not(.filter-hidden)');
             const tl = document.getElementById('timeline');
             if (first && tl && tl.scrollTo) tl.scrollTo({ left: first.offsetLeft - 24, behavior: 'smooth' });
         }
@@ -3707,6 +3847,10 @@
             set('cn-upcoming', tourData.length - played);
             set('cn-played', played);
             set('cn-fav', fav);
+            set('cn-west', tourData.filter(s => REGION_OF[s.stateId] === 'West').length);
+            set('cn-midwest', tourData.filter(s => REGION_OF[s.stateId] === 'Midwest').length);
+            set('cn-south', tourData.filter(s => REGION_OF[s.stateId] === 'South').length);
+            set('cn-northeast', tourData.filter(s => REGION_OF[s.stateId] === 'Northeast').length);
         }
         function jumpToNextMatch() {
             const q = document.getElementById('search-input').value.trim().toLowerCase();
@@ -3962,6 +4106,9 @@
             document.getElementById('exp-equipment').value = exp.equipment || '';
             document.getElementById('exp-food').value = exp.food || '';
             document.getElementById('exp-drink').value = exp.drink || '';
+            document.getElementById('panel-expense-notes').value = data.expenseNotes || '';
+            document.getElementById('panel-receipts').innerHTML = '<p class="pill-empty-note">Loading…</p>';
+            renderReceipts(id);
             document.querySelectorAll('.social-check').forEach(cb => cb.checked = data.socials && data.socials.includes(cb.value));
             document.getElementById('panel-social-note').value = data.socialNote || '';
             updateSocialNoteVisibility();
@@ -4019,7 +4166,8 @@
                     equipment: +document.getElementById('exp-equipment').value || 0,
                     food: +document.getElementById('exp-food').value || 0,
                     drink: +document.getElementById('exp-drink').value || 0
-                }
+                },
+                expenseNotes: document.getElementById('panel-expense-notes').value
             };
             const ok = saveState();
             checkAchievements();
@@ -4152,6 +4300,56 @@
                 img.src = e.target.result;
             };
             reader.readAsDataURL(file);
+        }
+
+        /* ---------------- RECEIPTS ---------------- */
+        // Wider than the memory photo (1000px vs 700px) so receipt line items stay legible.
+        function readReceiptAsDataUrl(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onerror = () => reject(reader.error);
+                reader.onload = e => {
+                    const img = new Image();
+                    img.onerror = reject;
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        const MAX_WIDTH = 1000; const scaleSize = Math.min(1, MAX_WIDTH / img.width);
+                        canvas.width = img.width * scaleSize; canvas.height = img.height * scaleSize;
+                        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+                        resolve(canvas.toDataURL('image/jpeg', 0.75));
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+        async function handleReceiptUpload(event) {
+            const files = Array.from(event.target.files || []);
+            event.target.value = '';
+            if (!files.length || !currentActiveCityId) return;
+            const targetId = currentActiveCityId;
+            try {
+                const dataUrls = await Promise.all(files.map(readReceiptAsDataUrl));
+                for (const dataUrl of dataUrls) await ReceiptStore.add(targetId, dataUrl);
+                if (currentActiveCityId === targetId) renderReceipts(targetId);
+                showToast(`${dataUrls.length} receipt${dataUrls.length > 1 ? 's' : ''} saved ✓`, 'ok');
+            } catch (err) { showToast('Could not save receipt(s).', 'warn'); }
+        }
+        async function renderReceipts(id) {
+            const wrap = document.getElementById('panel-receipts');
+            if (!wrap) return;
+            let list = [];
+            try { list = await ReceiptStore.list(id); } catch (e) {}
+            if (currentActiveCityId !== id) return; // panel moved on while this was loading
+            wrap.innerHTML = list.length ? list.map(r => `
+                <div class="receipt-thumb">
+                    <img src="${r.dataUri}" alt="Receipt" onclick="window.open('${r.dataUri.replace(/'/g, "\\'")}', '_blank')">
+                    <button type="button" class="receipt-remove" aria-label="Remove receipt" onclick="removeReceipt('${statEsc(id)}','${statEsc(r.id)}')">&times;</button>
+                </div>`).join('') : '<p class="pill-empty-note">No receipts uploaded yet.</p>';
+        }
+        async function removeReceipt(cityId, id) {
+            try { await ReceiptStore.del(cityId, id); } catch (e) {}
+            if (currentActiveCityId === cityId) renderReceipts(cityId);
         }
 
         /* ---------------- MAINTENANCE LOG ---------------- */
@@ -4644,7 +4842,9 @@
         async function exportData() {
             let photos = {};
             try { photos = await PhotoStore.all(); } catch (e) {}
-            const payload = { state, photos, achievements: earnedAchievements, exportedAt: new Date().toISOString() };
+            let receipts = {};
+            try { receipts = await ReceiptStore.all(); } catch (e) {}
+            const payload = { state, photos, receipts, achievements: earnedAchievements, exportedAt: new Date().toISOString() };
             /* 6.3 — a data: URI silently truncates or fails once the embedded photos
                push the payload past a few MB. Blob + object URL has no such ceiling,
                and matches what exportCSV already does. */
@@ -4663,8 +4863,10 @@
             const s = (val === undefined || val === null) ? '' : String(val);
             return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
         }
-        function exportCSV() {
-            const cols = ['City', 'State', 'Venue', 'Date', 'Time', 'Timezone', 'Played', 'Favorite', 'Equipment', 'Food', 'Drink', 'Total Spent', 'Social Media Done', 'Social Notes', 'Instrument Notes', 'Personal Notes'];
+        async function exportCSV() {
+            let receiptsByCity = {};
+            try { receiptsByCity = await ReceiptStore.all(); } catch (e) {}
+            const cols = ['City', 'State', 'Venue', 'Date', 'Time', 'Timezone', 'Played', 'Favorite', 'Equipment', 'Food', 'Drink', 'Total Spent', 'Expense Notes', 'Receipts', 'Social Media Done', 'Social Notes', 'Instrument Notes', 'Personal Notes'];
             const rows = [cols];
             tourData.forEach(stop => {
                 const d = state.cityDetails[stop.id] || {};
@@ -4678,6 +4880,8 @@
                     state.completedCities.includes(stop.id) ? 'Yes' : 'No',
                     d.favorite ? 'Yes' : 'No',
                     equipment, food, drink, equipment + food + drink,
+                    d.expenseNotes || '',
+                    (receiptsByCity[stop.id] || []).length,
                     (d.socials || []).join('; '),
                     d.socialNote || '',
                     instrumentNotes,
@@ -4805,7 +5009,8 @@
             return `<div class="pdf-field"><span class="k">${pdfEsc(label)}</span><span class="v">${pdfEsc(value)}</span></div>`;
         }
 
-        function buildPDFReport() {
+        function buildPDFReport(receiptsByCity) {
+            receiptsByCity = receiptsByCity || {};
             const n = recapNumbers();
             const now = new Date();
             const stamp = now.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
@@ -4843,10 +5048,11 @@
                 const equipment = +exp.equipment || 0, food = +exp.food || 0, drink = +exp.drink || 0;
                 const spent = equipment + food + drink;
                 const instrumentEntries = Object.entries(d.instrumentLogs || {}).filter(([, note]) => note && note.trim());
+                const receiptCount = (receiptsByCity[stop.id] || []).length;
                 const hasData = state.completedCities.includes(stop.id) || d.favorite || spent > 0
-                    || d.notes || instrumentEntries.length
-                    || (d.socials || []).length || d.hasPhoto;
-                (hasData ? logged : bare).push({ stop, d, exp, spent, instrumentEntries });
+                    || d.notes || d.expenseNotes || instrumentEntries.length
+                    || (d.socials || []).length || d.hasPhoto || receiptCount;
+                (hasData ? logged : bare).push({ stop, d, exp, spent, instrumentEntries, receiptCount });
                 if (spent > 0) expensed.push({ stop, equipment, food, drink, spent });
             });
 
@@ -4854,7 +5060,7 @@
             if (!logged.length) {
                 html += `<p class="pdf-empty">Nothing logged yet — every stop is still ahead on the road.</p>`;
             } else {
-                logged.forEach(({ stop, d, exp, spent, instrumentEntries }) => {
+                logged.forEach(({ stop, d, exp, spent, instrumentEntries, receiptCount }) => {
                     const played = state.completedCities.includes(stop.id);
                     const instrumentHtml = instrumentEntries.map(([name, note]) => pdfField(name, note)).join('');
                     html += `
@@ -4866,6 +5072,8 @@
                             ${pdfField('Social posted', (d.socials || []).join(', '))}
                             ${pdfField('Social notes', d.socialNote)}
                             ${spent > 0 ? pdfField('Expenses', `Equipment $${+exp.equipment || 0} · Food $${+exp.food || 0} · Drink $${+exp.drink || 0} — total $${spent}`) : ''}
+                            ${pdfField('Expense notes', d.expenseNotes)}
+                            ${receiptCount ? pdfField('Receipts', `${receiptCount} attached (see Export backup)`) : ''}
                             ${d.hasPhoto ? pdfField('Photo', 'Saved on device') : ''}
                         </div>`;
                 });
@@ -4928,10 +5136,12 @@
             return html;
         }
 
-        function exportPDF() {
+        async function exportPDF() {
             const report = document.getElementById('pdf-report');
+            let receiptsByCity = {};
+            try { receiptsByCity = await ReceiptStore.all(); } catch (e) {}
             try {
-                report.innerHTML = buildPDFReport();
+                report.innerHTML = buildPDFReport(receiptsByCity);
             } catch (e) {
                 showToast('Could not build the PDF report.', 'warn');
                 return;
@@ -4982,8 +5192,10 @@
 
                 // Preview what this backup actually contains before asking to overwrite anything.
                 const photos = (parsed && parsed.photos && typeof parsed.photos === 'object') ? parsed.photos : {};
+                const receipts = (parsed && parsed.receipts && typeof parsed.receipts === 'object') ? parsed.receipts : {};
                 const matchedShows = candidate.completedCities.filter(id => tourData.some(s => s.id === id)).length;
                 const photoCount = Object.keys(photos).length;
+                const receiptCount = Object.values(receipts).reduce((n, arr) => n + (Array.isArray(arr) ? arr.length : 0), 0);
                 const achvCount = Array.isArray(parsed.achievements) ? parsed.achievements.length : 0;
                 const savedAt = parsed && parsed.exportedAt ? new Date(parsed.exportedAt) : null;
                 const savedStr = savedAt && !isNaN(savedAt)
@@ -4993,6 +5205,7 @@
                 const preview = `This backup contains:\n` +
                     `  • ${matchedShows} of ${tourData.length} shows marked played\n` +
                     `  • ${photoCount} photo${photoCount === 1 ? '' : 's'}\n` +
+                    `  • ${receiptCount} receipt${receiptCount === 1 ? '' : 's'}\n` +
                     `  • ${achvCount} achievement${achvCount === 1 ? '' : 's'} earned\n` +
                     `  • Last saved: ${savedStr}\n\n` +
                     `Importing will replace everything you have now. Continue?`;
@@ -5006,6 +5219,17 @@
                     candidate.completedCities = candidate.completedCities.filter(id => tourData.some(s => s.id === id));
                     state = candidate; saveState();
                     for (const id in photos) { try { await PhotoStore.set(id, photos[id]); } catch (err) {} }
+                    // Receipts are additive (each has its own generated id), so clear whatever
+                    // exists first — otherwise re-importing the same backup would duplicate them.
+                    try {
+                        const existingReceipts = await ReceiptStore.all();
+                        for (const cityId in existingReceipts) {
+                            for (const r of existingReceipts[cityId]) { try { await ReceiptStore.del(cityId, r.id); } catch (err) {} }
+                        }
+                    } catch (err) {}
+                    for (const cityId in receipts) {
+                        for (const r of receipts[cityId]) { try { await ReceiptStore.add(cityId, r.dataUri); } catch (err) {} }
+                    }
                     if (Array.isArray(parsed.achievements)) { try { appStorage.setItem('outlanderAchievements', JSON.stringify(parsed.achievements)); } catch (err) {} }
                     location.reload();
                 } catch (err) {

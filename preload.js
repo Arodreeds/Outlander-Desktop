@@ -15,6 +15,14 @@ contextBridge.exposeInMainWorld('electronPhotos', {
     all: () => ipcRenderer.invoke('photo-all')
 });
 
+// Async, matching ReceiptStore's existing IndexedDB-based contract (many per city).
+contextBridge.exposeInMainWorld('electronReceipts', {
+    add: (cityId, dataUri) => ipcRenderer.invoke('receipt-add', cityId, dataUri),
+    list: (cityId) => ipcRenderer.invoke('receipt-list', cityId),
+    del: (cityId, id) => ipcRenderer.invoke('receipt-del', cityId, id),
+    all: () => ipcRenderer.invoke('receipt-all')
+});
+
 contextBridge.exposeInMainWorld('electronSaveFolder', {
     get: () => ipcRenderer.invoke('get-save-folder'),
     choose: () => ipcRenderer.invoke('choose-save-folder'),

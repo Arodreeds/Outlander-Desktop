@@ -28,9 +28,22 @@ let saveFolder = readConfig().saveFolder || DEFAULT_SAVE_FOLDER;
 function ensureFolders(folder) {
     fs.mkdirSync(folder, { recursive: true });
     fs.mkdirSync(path.join(folder, 'photos'), { recursive: true });
+    fs.mkdirSync(path.join(folder, 'receipts'), { recursive: true });
 }
 ensureFolders(saveFolder);
 if (!readConfig().saveFolder) writeConfig({ saveFolder });
+
+// Maps the app's existing localStorage key names to files in the save folder,
+// so the renderer's storage shim can stay a drop-in replacement for
+// localStorage.getItem/setItem/removeItem with no per-key special-casing.
+// (Declared here, ahead of the auto-backup block below, since the startup
+// backup call at the bottom of that block runs immediately and reads this.)
+const KEY_TO_FILENAME = {
+    outlanderTourState: 'save-data.json',
+    outlanderGeocache: 'geocode-cache.json',
+    outlanderAchievements: 'achievements.json',
+    outlanderSeen: 'onboarding-seen.json'
+};
 
 // ---------------------------------------------------------------------------
 // Auto-backup — timestamped snapshots of the save files + photos, written
@@ -65,6 +78,8 @@ function runAutoBackup(folder) {
                 fs.copyFileSync(path.join(srcPhotos, f), path.join(destPhotos, f));
             }
         }
+        const srcReceipts = path.join(folder, 'receipts');
+        if (fs.existsSync(srcReceipts)) fs.cpSync(srcReceipts, path.join(dest, 'receipts'), { recursive: true });
         pruneOldBackups(dir);
     } catch (e) { /* best-effort, never block the app over a failed backup */ }
 }
@@ -91,16 +106,6 @@ function maybeRunStartupBackup(folder) {
     if (Date.now() - latestBackupTime(backupDir(folder)) > STARTUP_BACKUP_INTERVAL_MS) runAutoBackup(folder);
 }
 maybeRunStartupBackup(saveFolder);
-
-// Maps the app's existing localStorage key names to files in the save folder,
-// so the renderer's storage shim can stay a drop-in replacement for
-// localStorage.getItem/setItem/removeItem with no per-key special-casing.
-const KEY_TO_FILENAME = {
-    outlanderTourState: 'save-data.json',
-    outlanderGeocache: 'geocode-cache.json',
-    outlanderAchievements: 'achievements.json',
-    outlanderSeen: 'onboarding-seen.json'
-};
 
 function fileForKey(key) {
     const name = KEY_TO_FILENAME[key];
@@ -202,6 +207,57 @@ ipcMain.handle('photo-all', async () => {
 });
 
 // ---------------------------------------------------------------------------
+// Receipt storage — like photos, but many files per show: real files under
+// <saveFolder>/receipts/<cityId>/, one per receipt, so they're just as
+// browsable in Finder and travel with the save folder like everything else.
+// ---------------------------------------------------------------------------
+function receiptsDir(cityId) { return path.join(saveFolder, 'receipts', cityId); }
+function receiptFiles(cityId) {
+    const dir = receiptsDir(cityId);
+    if (!fs.existsSync(dir)) return [];
+    return fs.readdirSync(dir).filter(f => fs.statSync(path.join(dir, f)).isFile());
+}
+
+ipcMain.handle('receipt-add', async (event, cityId, dataUri) => {
+    const { mime, buffer } = dataUriToBuffer(dataUri);
+    const dir = receiptsDir(cityId);
+    fs.mkdirSync(dir, { recursive: true });
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    fs.writeFileSync(path.join(dir, `${id}.${extForMime(mime)}`), buffer);
+    return { id };
+});
+
+ipcMain.handle('receipt-list', async (event, cityId) => {
+    const dir = receiptsDir(cityId);
+    return receiptFiles(cityId).map(f => {
+        const buffer = fs.readFileSync(path.join(dir, f));
+        return { id: path.parse(f).name, dataUri: `data:${mimeForExt(path.extname(f))};base64,${buffer.toString('base64')}` };
+    });
+});
+
+ipcMain.handle('receipt-del', async (event, cityId, id) => {
+    const dir = receiptsDir(cityId);
+    const hit = receiptFiles(cityId).find(f => path.parse(f).name === id);
+    if (hit) fs.unlinkSync(path.join(dir, hit));
+    return true;
+});
+
+ipcMain.handle('receipt-all', async () => {
+    const base = path.join(saveFolder, 'receipts');
+    const out = {};
+    if (!fs.existsSync(base)) return out;
+    for (const cityId of fs.readdirSync(base)) {
+        if (!fs.statSync(path.join(base, cityId)).isDirectory()) continue;
+        const dir = receiptsDir(cityId);
+        out[cityId] = receiptFiles(cityId).map(f => {
+            const buffer = fs.readFileSync(path.join(dir, f));
+            return { id: path.parse(f).name, dataUri: `data:${mimeForExt(path.extname(f))};base64,${buffer.toString('base64')}` };
+        });
+    }
+    return out;
+});
+
+// ---------------------------------------------------------------------------
 // Save-folder management — one shared implementation used by both the
 // renderer's Settings button (via IPC) and the native "Change Save Folder…"
 // menu item, so there's exactly one place that knows how to migrate data.
@@ -230,6 +286,8 @@ async function promptAndChangeSaveFolder(win) {
             fs.copyFileSync(path.join(oldPhotos, filename), path.join(newFolder, 'photos', filename));
         }
     }
+    const oldReceipts = path.join(saveFolder, 'receipts');
+    if (fs.existsSync(oldReceipts)) fs.cpSync(oldReceipts, path.join(newFolder, 'receipts'), { recursive: true });
 
     saveFolder = newFolder;
     writeConfig({ saveFolder });
