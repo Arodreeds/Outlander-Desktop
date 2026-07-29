@@ -39,7 +39,16 @@ geocode-cache.json      — cached venue coordinates
 achievements.json       — earned achievements
 onboarding-seen.json    — whether the welcome screen has been dismissed
 photos/<cityId>.jpg     — real, double-clickable photo files (was IndexedDB)
+backups/<timestamp>/    — automatic snapshots of the four files above + photos
 ```
+
+Backups are taken automatically — after every show you mark complete, and
+once per launch if the last snapshot is more than a day old — and pruned to
+the most recent 20. They live inside the save folder itself rather than
+Electron's own app-data folder, so pointing Save Location at a synced
+Dropbox/iCloud folder carries backup history along too. They're also left
+alone by "Reset Entire Tour Data," so a mistaken reset without exporting
+first is still recoverable from here.
 
 Users can change this folder from Settings → Save Location → "Change Folder…"
 (or the app's "Data" menu) — pointing it at a Dropbox/iCloud Drive/OneDrive

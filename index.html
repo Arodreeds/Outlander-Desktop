@@ -1228,6 +1228,7 @@
                     <button role="menuitem" onclick="exportData();closeMore()">Export backup</button>
                     <button role="menuitem" onclick="exportCSV();closeMore()">Export as Excel (CSV)</button>
                     <button role="menuitem" onclick="exportPDF();closeMore()">Export as PDF</button>
+                    <button role="menuitem" onclick="exportTourICS();closeMore()">Export Tour to Calendar</button>
                     <button role="menuitem" onclick="document.getElementById('importFile').click();closeMore()">Import backup</button>
                     <button role="menuitem" onclick="toggleSettings();closeMore()">Settings</button>
                     <button role="menuitem" onclick="showOnboarding();closeMore()">Help</button>
@@ -1456,6 +1457,9 @@
                     <button type="button" class="cic-btn" onclick="copyVenueAddress()">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"></rect><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"></path></svg>Copy address
                     </button>
+                    <button type="button" class="cic-btn" onclick="addShowToCalendar()">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16.5" rx="2"></rect><path d="M3 9.5h18M8 2.5v4M16 2.5v4"></path></svg>Add to Calendar
+                    </button>
                 </div>
                 <div class="cic-meta">
                     <span class="cic-chip"><svg class="ico" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16.5" rx="2"></rect><path d="M3 9.5h18M8 2.5v4M16 2.5v4"></path></svg><span id="panel-date"></span></span>
@@ -1553,7 +1557,7 @@
             <div class="panel-rule"></div>
             <div class="achv-head">
                 <span class="section-label">Earned</span>
-                <span id="achv-tally">0 / 7</span>
+                <span id="achv-tally">0 / 13</span>
             </div>
             <div id="achv-list"></div>
         </div>
@@ -1667,6 +1671,17 @@
                 <div style="display:flex; gap:8px;">
                     <button type="button" class="btn btn-ghost" style="margin-top:0; flex:1;" onclick="revealSaveFolder()">Reveal in Finder</button>
                     <button type="button" class="btn btn-ghost" style="margin-top:0; flex:1;" onclick="changeSaveFolder()">Change Folder…</button>
+                </div>
+            </div>
+
+            <!-- Only shown when running inside the Electron desktop app. -->
+            <div id="update-section" style="display:none">
+                <hr style="border:0; border-top:1px solid #33414b; margin: 22px 0 18px;">
+                <span class="section-label">Updates</span>
+                <p id="update-status" style="color: var(--parchment-dim); font-size: 0.85rem; margin: 6px 0 12px;"></p>
+                <div style="display:flex; gap:8px;">
+                    <button type="button" class="btn btn-ghost" style="margin-top:0; flex:1;" onclick="checkForUpdates()">Check for Updates</button>
+                    <button type="button" class="btn btn-ghost" style="margin-top:0; flex:1;" onclick="window.electronUpdater.openReleasePage()">View on GitHub</button>
                 </div>
             </div>
 
@@ -1786,7 +1801,7 @@
             { id: 'tucson', time: '7:30 PM', city: 'Tucson, AZ', stateId: 'AZ', venue: 'Fox Tucson Theatre', date: 'Nov 20, 2026', x: 276.2, y: 433.8, offset: [7, 6], anchor: 'start', tz: 'America/Phoenix', lat: 32.2216, lon: -110.972, milesToNext: 800 },
             { id: 'denver', time: '7:30 PM', city: 'Denver, CO', stateId: 'CO', venue: 'Paramount Theatre', date: 'Nov 22, 2026', x: 405.8, y: 276.9, offset: [7, 0], anchor: 'start', tz: 'America/Denver', lat: 39.744, lon: -104.9895, milesToNext: 450 },
             { id: 'albuquerque', time: '7:00 PM', city: 'Albuquerque, NM', stateId: 'NM', venue: 'Popejoy Hall', date: 'Nov 23, 2026', x: 376.8, y: 365.4, offset: [7, 2], anchor: 'start', tz: 'America/Denver', lat: 35.0845, lon: -106.621, milesToNext: 650 },
-            { id: 'dallas', time: '7:30 PM', city: 'Dallas, TX', stateId: 'TX', venue: 'AT&T Performing Arts Center', date: 'Nov 25, 2026', x: 545.9, y: 443.5, offset: [-7, -3], anchor: 'end', tz: 'America/Chicago', lat: 32.7893, lon: -96.7975, milesToNext: 200 },
+            { id: 'dallas', time: '7:30 PM', city: 'Dallas, TX', stateId: 'TX', venue: 'The Majestic Theatre', date: 'Nov 25, 2026', x: 545.9, y: 443.5, offset: [-7, -3], anchor: 'end', tz: 'America/Chicago', lat: 32.7836, lon: -96.7944, milesToNext: 200 },
             { id: 'austin', time: '8:00 PM', city: 'Austin, TX', stateId: 'TX', venue: 'Bass Concert Hall', date: 'Nov 28, 2026', x: 526.9, y: 500.4, offset: [-7, 2], anchor: 'end', tz: 'America/Chicago', lat: 30.286, lon: -97.731, milesToNext: 160 },
             { id: 'sugarland', time: '6:00 PM', city: 'Sugar Land, TX', stateId: 'TX', venue: 'Smart Financial Centre', date: 'Nov 29, 2026', x: 568.2, y: 515.5, offset: [7, 4], anchor: 'start', tz: 'America/Chicago', lat: 29.5875, lon: -95.636, milesToNext: 470 },
             { id: 'oklahomacity', time: '7:00 PM', city: 'Oklahoma City, OK', stateId: 'OK', venue: 'Thelma Gaylord Performing Arts Theater', date: 'Nov 30, 2026', x: 533.2, y: 381.9, offset: [-7, -3], anchor: 'end', tz: 'America/Chicago', lat: 35.47, lon: -97.522, milesToNext: 470 },
@@ -2436,6 +2451,7 @@
                 if (MARQUEE_BADGES[tourData[i].id]) mark('venue-' + tourData[i].id, i, true);
                 if (states.size >= 20) mark('20states', i, true);
                 if (count >= tourData.length - 1) mark('penultimate', i, true);
+                if (count >= tourData.length) mark('complete', i, true);
             }
             mkStopsCache = map;
             return map;
@@ -4006,6 +4022,7 @@
                 }
             };
             const ok = saveState();
+            checkAchievements();
             updateDashboard(); renderTimeline();
             if (showConfirm && ok) showToast('Saved ✓', 'ok');
         }
@@ -4088,6 +4105,8 @@
                 }
             }
             saveState(); closeCityPanel();
+            // Runs after saveState() so the snapshot reflects the completion just saved.
+            if (window.electronBackup) window.electronBackup.run();
             renderMap(); updateDashboard(); renderTimeline();
 
             if (startWalkAfterPanelCloses) {
@@ -4276,6 +4295,12 @@
             { id: 'venue-losangeles', title: 'Dolby Performance Completed!', hint: 'Play the Dolby Theatre.' },
             { id: '20states',         title: 'Twenty States Visited!',      hint: 'Play a show in twenty states.' },
             { id: 'penultimate',      title: 'One Show Left!',              hint: 'Reach the final stop of the tour.' },
+            { id: 'complete',         title: 'Tour Complete!',              hint: 'Play every show on the tour.' },
+            { id: 'sweep',            title: 'Regional Sweep',              hint: 'Complete every show in one region of the tour.' },
+            { id: 'superfan',         title: 'Superfan',                    hint: 'Mark 10 shows as a Favorite.' },
+            { id: 'chronicler',       title: 'Chronicler',                  hint: 'Write personal notes for 10 shows.' },
+            { id: 'socialite',        title: 'Social Butterfly',            hint: 'Check every social media box for one show.' },
+            { id: 'tunedup',          title: 'Tuned Up',                    hint: 'Log an instrument note for 5 different shows.' },
             /* Not earned by playing — found. Stays hidden until it turns up. */
             { id: 'dragonfly',        title: 'Dragonfly in Amber',          hint: 'Something glints, out on the road.', secret: true }
         ];
@@ -4313,6 +4338,26 @@
             });
             if (states.size >= 20) awardAchievement('20states');
             if (count >= tourData.length - 1) awardAchievement('penultimate');
+            if (tourData.length > 0 && count >= tourData.length) awardAchievement('complete');
+
+            /* Regional sweep — same region bucketing as the Progress stat sheet.
+               Stray states with no named region (e.g. DC, a single show) are
+               skipped so one-off stops can't trivially "sweep" a region of one. */
+            const byRegion = {};
+            REGION_ORDER.forEach(r => byRegion[r] = { done: 0, total: 0 });
+            tourData.forEach(s => {
+                const r = REGION_OF[s.stateId];
+                if (!r || !byRegion[r]) return;
+                byRegion[r].total++;
+                if (state.completedCities.includes(s.id)) byRegion[r].done++;
+            });
+            if (Object.values(byRegion).some(r => r.total > 0 && r.done === r.total)) awardAchievement('sweep');
+
+            const details = Object.values(state.cityDetails);
+            if (details.filter(d => d.favorite).length >= 10) awardAchievement('superfan');
+            if (details.filter(d => d.notes && d.notes.trim()).length >= 10) awardAchievement('chronicler');
+            if (details.some(d => Array.isArray(d.socials) && d.socials.length >= 4)) awardAchievement('socialite');
+            if (details.filter(d => d.instrumentLogs && Object.keys(d.instrumentLogs).length > 0).length >= 5) awardAchievement('tunedup');
         }
 
         /* Saves that predate the achievement carry the flag but not the badge. */
@@ -4422,7 +4467,7 @@
 
         /* ---------------- MISC ---------------- */
         function toggleSettings() {
-            updateStorageUsage(); refreshSaveLocationUI();
+            updateStorageUsage(); refreshSaveLocationUI(); refreshUpdateSectionUI();
             document.getElementById('settings-name').value = state.profile.name || '';
             renderInstrumentPillsInto('settings-instrument-pills');
             document.getElementById('settings-overlay').classList.toggle('active');
@@ -4494,6 +4539,34 @@
             if (result && result.changed) {
                 showToast('Save folder updated — reloading…', 'ok');
                 setTimeout(() => location.reload(), 600);
+            }
+        }
+
+        /* Updates — only meaningful (and only shown) inside the Electron app.
+           No silent auto-update: the app isn't code-signed, so this just checks
+           the latest GitHub release tag and links out for a manual re-download. */
+        function refreshUpdateSectionUI() {
+            const section = document.getElementById('update-section');
+            if (!section) return;
+            if (!window.electronUpdater) { section.style.display = 'none'; return; }
+            section.style.display = '';
+            document.getElementById('update-status').textContent = '';
+        }
+        async function checkForUpdates() {
+            if (!window.electronUpdater) return;
+            const statusEl = document.getElementById('update-status');
+            statusEl.textContent = 'Checking…';
+            const result = await window.electronUpdater.check();
+            if (!result.ok) {
+                statusEl.textContent = `Couldn't check for updates (${result.error}).`;
+                return;
+            }
+            if (result.updateAvailable) {
+                statusEl.textContent = `Update available: v${result.latestVersion} (you have v${result.currentVersion}).`;
+                showToast(`Update available: v${result.latestVersion}`, 'ok');
+            } else {
+                statusEl.textContent = `You're up to date (v${result.currentVersion}).`;
+                showToast("You're up to date", 'ok');
             }
         }
 
@@ -4617,6 +4690,98 @@
             const a = document.createElement('a'); a.href = url; a.download = 'tour_companion_data.csv'; a.click();
             URL.revokeObjectURL(url);
             showToast('Excel export ready ✓', 'ok');
+        }
+
+        /* ---------------- CALENDAR EXPORT (.ics) ----------------
+           No VTIMEZONE block: DTSTART/DTEND carry a bare TZID, which Apple
+           Calendar, Google Calendar and Outlook all resolve against their own
+           IANA tzdata — good enough for a handful of US timezones without
+           reproducing the full VTIMEZONE tables RFC 5545 technically wants. */
+        function icsEscape(s) {
+            return String(s === undefined || s === null ? '' : s)
+                .replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
+        }
+        function icsFold(line) {
+            // RFC 5545: lines over 75 octets get folded onto a continuation line
+            // starting with a single space.
+            if (line.length <= 75) return line;
+            let out = line.slice(0, 75);
+            let rest = line.slice(75);
+            while (rest.length) { out += '\r\n ' + rest.slice(0, 74); rest = rest.slice(74); }
+            return out;
+        }
+        function icsStamp(d) {
+            const p = n => String(n).padStart(2, '0');
+            return `${d.getUTCFullYear()}${p(d.getUTCMonth() + 1)}${p(d.getUTCDate())}T${p(d.getUTCHours())}${p(d.getUTCMinutes())}${p(d.getUTCSeconds())}Z`;
+        }
+        // Parses this app's own "Sep 25, 2026" + "7:30 PM" strings into wall-clock
+        // parts — no timezone math needed since DTSTART carries a bare TZID.
+        function parseStopStart(stop, showtime) {
+            const d = new Date(stop.date);
+            const m = /(\d{1,2}):(\d{2})\s*(AM|PM)/i.exec(showtime || stop.time || '');
+            let hour = 19, minute = 30;
+            if (m) {
+                hour = parseInt(m[1], 10) % 12;
+                minute = parseInt(m[2], 10);
+                if (/pm/i.test(m[3])) hour += 12;
+            }
+            return { year: d.getFullYear(), month: d.getMonth() + 1, day: d.getDate(), hour, minute };
+        }
+        function icsLocal(parts) {
+            const p = n => String(n).padStart(2, '0');
+            return `${parts.year}${p(parts.month)}${p(parts.day)}T${p(parts.hour)}${p(parts.minute)}00`;
+        }
+        const SHOW_DURATION_HOURS = 2.5;
+        function icsEventLines(stop) {
+            const d = state.cityDetails[stop.id] || {};
+            const start = parseStopStart(stop, d.showtime);
+            const startDate = new Date(start.year, start.month - 1, start.day, start.hour, start.minute);
+            const endDate = new Date(startDate.getTime() + SHOW_DURATION_HOURS * 60 * 60 * 1000);
+            const end = { year: endDate.getFullYear(), month: endDate.getMonth() + 1, day: endDate.getDate(), hour: endDate.getHours(), minute: endDate.getMinutes() };
+            const tzid = stop.tz || 'America/New_York';
+            return [
+                'BEGIN:VEVENT',
+                `UID:${stop.id}@outlandertourcompanion`,
+                `DTSTAMP:${icsStamp(new Date())}`,
+                `DTSTART;TZID=${tzid}:${icsLocal(start)}`,
+                `DTEND;TZID=${tzid}:${icsLocal(end)}`,
+                `SUMMARY:${icsEscape('Outlander in Concert — ' + splitCity(stop).city)}`,
+                `LOCATION:${icsEscape(`${stop.venue}, ${stop.city}`)}`,
+                `DESCRIPTION:${icsEscape(stop.venue + ' — Outlander in Concert Tour Companion')}`,
+                'BEGIN:VALARM',
+                'ACTION:DISPLAY',
+                'DESCRIPTION:Reminder',
+                'TRIGGER:-P1D',
+                'END:VALARM',
+                'END:VEVENT'
+            ];
+        }
+        function buildICS(stops) {
+            const lines = [
+                'BEGIN:VCALENDAR',
+                'VERSION:2.0',
+                'PRODID:-//Outlander Tour Companion//EN',
+                'CALSCALE:GREGORIAN',
+                ...stops.flatMap(icsEventLines),
+                'END:VCALENDAR'
+            ];
+            return lines.map(icsFold).join('\r\n');
+        }
+        function downloadICS(ics, filename) {
+            const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
+            URL.revokeObjectURL(url);
+        }
+        function addShowToCalendar() {
+            const stop = tourData.find(s => s.id === currentActiveCityId);
+            if (!stop) return;
+            downloadICS(buildICS([stop]), `outlander-${stop.id}.ics`);
+            showToast('Calendar event ready ✓', 'ok');
+        }
+        function exportTourICS() {
+            downloadICS(buildICS(tourData), 'outlander-tour-schedule.ics');
+            showToast('Tour schedule exported ✓', 'ok');
         }
 
         /* ---------------- PDF EXPORT ----------------

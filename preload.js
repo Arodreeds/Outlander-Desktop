@@ -21,4 +21,13 @@ contextBridge.exposeInMainWorld('electronSaveFolder', {
     reveal: () => ipcRenderer.invoke('reveal-save-folder')
 });
 
+contextBridge.exposeInMainWorld('electronBackup', {
+    run: () => ipcRenderer.invoke('run-backup')
+});
+
+contextBridge.exposeInMainWorld('electronUpdater', {
+    check: () => ipcRenderer.invoke('check-for-update'),
+    openReleasePage: () => ipcRenderer.invoke('open-releases-page')
+});
+
 contextBridge.exposeInMainWorld('isElectron', true);

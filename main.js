@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, dialog, shell, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const https = require('https');
 
 // ---------------------------------------------------------------------------
 // Where the user's data actually lives. This is intentionally separate from
@@ -30,6 +31,66 @@ function ensureFolders(folder) {
 }
 ensureFolders(saveFolder);
 if (!readConfig().saveFolder) writeConfig({ saveFolder });
+
+// ---------------------------------------------------------------------------
+// Auto-backup — timestamped snapshots of the save files + photos, written
+// inside a "backups" subfolder of the *current* save folder (not Electron's
+// userData folder), so they travel along automatically if the user later
+// points Save Location at a synced Dropbox/iCloud folder. Runs on every show
+// completion (the meaningful checkpoints) and, as a catch-all for days spent
+// just editing notes/photos, once per launch if the last snapshot is stale.
+// Best-effort throughout: a failed backup should never block the app.
+// ---------------------------------------------------------------------------
+const BACKUP_DIR_NAME = 'backups';
+const MAX_BACKUPS = 20;
+const STARTUP_BACKUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
+
+function backupDir(folder) { return path.join(folder, BACKUP_DIR_NAME); }
+
+function runAutoBackup(folder) {
+    try {
+        const dir = backupDir(folder);
+        const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const dest = path.join(dir, stamp);
+        fs.mkdirSync(dest, { recursive: true });
+        for (const filename of Object.values(KEY_TO_FILENAME)) {
+            const src = path.join(folder, filename);
+            if (fs.existsSync(src)) fs.copyFileSync(src, path.join(dest, filename));
+        }
+        const srcPhotos = path.join(folder, 'photos');
+        if (fs.existsSync(srcPhotos)) {
+            const destPhotos = path.join(dest, 'photos');
+            fs.mkdirSync(destPhotos, { recursive: true });
+            for (const f of fs.readdirSync(srcPhotos)) {
+                fs.copyFileSync(path.join(srcPhotos, f), path.join(destPhotos, f));
+            }
+        }
+        pruneOldBackups(dir);
+    } catch (e) { /* best-effort, never block the app over a failed backup */ }
+}
+
+function pruneOldBackups(dir) {
+    const entries = fs.readdirSync(dir).filter(f => fs.statSync(path.join(dir, f)).isDirectory()).sort();
+    while (entries.length > MAX_BACKUPS) fs.rmSync(path.join(dir, entries.shift()), { recursive: true, force: true });
+}
+
+function latestBackupTime(dir) {
+    let entries;
+    try { entries = fs.readdirSync(dir); } catch (e) { return 0; }
+    let latest = 0;
+    for (const f of entries) {
+        try {
+            const st = fs.statSync(path.join(dir, f));
+            if (st.isDirectory() && st.mtimeMs > latest) latest = st.mtimeMs;
+        } catch (e) { /* ignore */ }
+    }
+    return latest;
+}
+
+function maybeRunStartupBackup(folder) {
+    if (Date.now() - latestBackupTime(backupDir(folder)) > STARTUP_BACKUP_INTERVAL_MS) runAutoBackup(folder);
+}
+maybeRunStartupBackup(saveFolder);
 
 // Maps the app's existing localStorage key names to files in the save folder,
 // so the renderer's storage shim can stay a drop-in replacement for
@@ -175,12 +236,68 @@ async function promptAndChangeSaveFolder(win) {
     return { changed: true, saveFolder };
 }
 
+ipcMain.handle('run-backup', async () => { runAutoBackup(saveFolder); return true; });
+
 ipcMain.handle('get-save-folder', async () => saveFolder);
 ipcMain.handle('reveal-save-folder', async () => { shell.openPath(saveFolder); });
 ipcMain.handle('choose-save-folder', async (event) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     return promptAndChangeSaveFolder(win);
 });
+
+// ---------------------------------------------------------------------------
+// Update check — this app isn't code-signed, so it can't use Squirrel's silent
+// auto-update (macOS refuses to apply updates to an unsigned app). Instead,
+// Settings gets a manual "Check for Updates" button that compares the running
+// version against the latest GitHub release tag and links out to it.
+// ---------------------------------------------------------------------------
+const RELEASES_API_URL = 'https://api.github.com/repos/Arodreeds/Outlander-Desktop/releases/latest';
+const RELEASES_PAGE_URL = 'https://github.com/Arodreeds/Outlander-Desktop/releases/latest';
+
+function fetchJSON(url) {
+    return new Promise((resolve, reject) => {
+        https.get(url, { headers: { 'User-Agent': 'Outlander-Tour-Companion' } }, (res) => {
+            if (res.statusCode !== 200) {
+                res.resume();
+                return reject(new Error(`GitHub API returned ${res.statusCode}`));
+            }
+            let data = '';
+            res.on('data', chunk => { data += chunk; });
+            res.on('end', () => {
+                try { resolve(JSON.parse(data)); } catch (e) { reject(e); }
+            });
+        }).on('error', reject);
+    });
+}
+
+// Numeric per-segment comparison so "1.10.0" correctly beats "1.2.0".
+function isNewerVersion(latest, current) {
+    const a = latest.split('.').map(Number);
+    const b = current.split('.').map(Number);
+    for (let i = 0; i < Math.max(a.length, b.length); i++) {
+        const diff = (a[i] || 0) - (b[i] || 0);
+        if (diff !== 0) return diff > 0;
+    }
+    return false;
+}
+
+ipcMain.handle('check-for-update', async () => {
+    const currentVersion = app.getVersion();
+    try {
+        const release = await fetchJSON(RELEASES_API_URL);
+        const latestVersion = String(release.tag_name || '').replace(/^v/i, '');
+        return {
+            ok: true,
+            currentVersion,
+            latestVersion,
+            updateAvailable: latestVersion ? isNewerVersion(latestVersion, currentVersion) : false
+        };
+    } catch (e) {
+        return { ok: false, currentVersion, error: e.message };
+    }
+});
+
+ipcMain.handle('open-releases-page', async () => { shell.openExternal(RELEASES_PAGE_URL); });
 
 // ---------------------------------------------------------------------------
 // Window + menu
