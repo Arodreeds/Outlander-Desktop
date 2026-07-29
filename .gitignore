@@ -2,3 +2,4 @@ node_modules/
 dist/
 *.log
 packaged_app_screenshot.png
+.DS_Store

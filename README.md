@@ -17,8 +17,17 @@ as a real downloadable macOS app — no developer account, no App Store.
 - `preload.js` — securely exposes `window.electronStorage` / `electronPhotos` /
   `electronSaveFolder` to the page, via `contextBridge` (no Node access is
   given directly to the page itself — standard Electron security practice).
-- `build/icon.icns` — the app icon (built from the same pixel-art "Lag" sprite
-  used as the map's city markers and the page's own favicon).
+- `build/icon.icns` / `build/icon.png` — the app icon (built from the same
+  pixel-art "Lag" sprite used as the map's city markers and the page's own
+  favicon), rendered as a transparent PNG and packed into an .icns.
+- `fonts/` — Cinzel and EB Garamond, decoded out of `index.html`'s old inline
+  base64 `@font-face` rules into real `.woff2`/`.woff` files (English-only
+  subset; the redundant broad-Unicode variants Google Fonts also ships were
+  dropped). Referenced from `index.html` via plain relative `url(...)`.
+- `vendor/leaflet.{css,js}` — the Leaflet map library, likewise pulled out of
+  the inline `<head>` block. It's now injected on demand (a `<link>`/`<script>`
+  added at runtime) the first time a city panel actually opens its live venue
+  map, instead of being parsed on every launch.
 
 ## Where user data actually lives
 
