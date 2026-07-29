@@ -1,7 +1,7 @@
 {
   "name": "outlander-tour-companion",
   "productName": "Outlander Tour Companion",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "Offline desktop companion for the Outlander in Concert tour.",
   "main": "main.js",
   "private": true,

@@ -63,8 +63,6 @@
                with TRAVEL_MS so the sprite, the camera pan and the route line all agree. */
             --travel-ms: 6500ms;
             --travel-ease: cubic-bezier(0.45, 0, 0.55, 1);
-            /* Header background photo (save the Outlander image as header-bg.jpg next to this file) */
-            --header-photo: url('header-bg.jpg');
             --font-display: 'Cinzel', 'Trajan Pro', Georgia, serif;
             --font-body: 'EB Garamond', Georgia, 'Times New Roman', serif;
             /* Woven tartan sett used as an accent band */
@@ -95,13 +93,10 @@
 
         /* --- HEADER --- */
         header {
-            /* Cinematic Highlands photo behind the header. Drop a file named
-               header-bg.jpg beside this HTML; a themed gradient shows if absent. */
             background:
                 linear-gradient(90deg, rgba(14,18,16,0.94) 0%, rgba(14,18,16,0.74) 42%, rgba(14,18,16,0.42) 100%),
-                var(--header-photo, none),
                 linear-gradient(120deg, #1c2a22, #21182b);
-            background-size: cover, cover, cover;
+            background-size: cover, cover;
             background-position: center 32%;
             padding: 12px 18px 11px;
             min-height: 64px;
@@ -898,6 +893,8 @@
         #zoom-reset { font-size: 1.15rem; color: var(--gold); }
         #zoom-reset:hover { color: #1a130a; }
         #zoom-level { text-align: center; font-size: 0.72rem; font-weight: 700; color: var(--text-muted); padding: 2px 0; letter-spacing: 0.5px; }
+        #route-toggle[aria-pressed="false"] { color: var(--text-muted); opacity: 0.55; }
+        .hide-travel-lines #route-lines { display: none; }
 
         /* Map Style tweak: Modern strips the antique-map flourishes for a flat, clean look */
         body.map-style-modern .map-corner,
@@ -1233,14 +1230,12 @@
                 <button id="more-btn" aria-haspopup="true" aria-expanded="false" onclick="toggleMore(event)">More ▾</button>
                 <div class="more-menu" id="more-menu" role="menu">
                     <button role="menuitem" onclick="openGallery();closeMore()">Gallery</button>
+                    <button role="menuitem" onclick="openReceiptsReview();closeMore()">Receipts</button>
                     <button role="menuitem" onclick="openMaintenanceLog();closeMore()">Maintenance Log</button>
                     <button role="menuitem" onclick="openRecap();closeMore()">Tour Recap</button>
                     <button role="menuitem" onclick="openAchievements();closeMore()">Achievements</button>
                     <hr>
-                    <button role="menuitem" onclick="exportData();closeMore()">Export backup</button>
-                    <button role="menuitem" onclick="exportCSV();closeMore()">Export as Excel (CSV)</button>
-                    <button role="menuitem" onclick="exportPDF();closeMore()">Export as PDF</button>
-                    <button role="menuitem" onclick="exportTourICS();closeMore()">Export Tour to Calendar</button>
+                    <button role="menuitem" onclick="document.getElementById('export-overlay').classList.add('active');closeMore()">Export</button>
                     <button role="menuitem" onclick="document.getElementById('importFile').click();closeMore()">Import backup</button>
                     <button role="menuitem" onclick="toggleSettings();closeMore()">Settings</button>
                     <button role="menuitem" onclick="showOnboarding();closeMore()">Help</button>
@@ -1346,6 +1341,13 @@
             <div id="zoom-level" aria-live="polite">210%</div>
             <button type="button" id="zoom-out" aria-label="Zoom out" onclick="zoomOut()">−</button>
             <button type="button" id="zoom-reset" aria-label="Recenter on Saxbyte" title="Recenter on Saxbyte" onclick="recenterCamera()">◎</button>
+            <button type="button" id="route-toggle" aria-pressed="true" aria-label="Toggle travel lines" title="Toggle travel lines" onclick="toggleTravelLines()">
+                <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+                    <circle cx="5" cy="19" r="2.3" fill="currentColor"></circle>
+                    <circle cx="19" cy="5" r="2.3" fill="currentColor"></circle>
+                    <path d="M5 19 Q 12 12 19 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-dasharray="3 3"></path>
+                </svg>
+            </button>
             <button type="button" id="replay-route" aria-label="Replay route from start" title="Replay route from start" onclick="replayRouteFromStart()">▶</button>
         </div>
 
@@ -1623,6 +1625,28 @@
         </div>
     </div>
 
+    <!-- Receipts Review -->
+    <div class="panel-overlay" id="receipts-overlay" data-close-on-backdrop="">
+        <div class="side-panel" role="dialog" aria-modal="true" aria-label="Receipts Review">
+            <div class="panel-header"><h2>Receipts</h2><button class="close-btn" aria-label="Close" onclick="closePanel('receipts-overlay')">×</button></div>
+            <div class="panel-rule"></div>
+            <p style="color: var(--text-muted); margin-bottom: 22px; font-size: 0.95rem; line-height: 1.5;">Every receipt uploaded, grouped by city.</p>
+            <div id="receipts-review-content"></div>
+        </div>
+    </div>
+
+    <!-- Export -->
+    <div class="panel-overlay" id="export-overlay" data-close-on-backdrop="">
+        <div class="side-panel" role="dialog" aria-modal="true" aria-label="Export">
+            <div class="panel-header"><h2>Export</h2><button class="close-btn" aria-label="Close" onclick="closePanel('export-overlay')">×</button></div>
+            <div class="panel-rule"></div>
+            <button class="btn btn-ghost" onclick="exportData();closePanel('export-overlay')">Export backup</button>
+            <button class="btn btn-ghost" onclick="exportCSV();closePanel('export-overlay')">Export as Excel (CSV)</button>
+            <button class="btn btn-ghost" onclick="exportPDF();closePanel('export-overlay')">Export as PDF</button>
+            <button class="btn btn-ghost" onclick="exportTourICS();closePanel('export-overlay')">Export Tour to Calendar</button>
+        </div>
+    </div>
+
     <!-- Settings -->
     <div class="panel-overlay" id="settings-overlay" data-close-on-backdrop="">
         <div class="side-panel" style="width:360px" role="dialog" aria-modal="true" aria-label="Settings">
@@ -1841,11 +1865,11 @@
             { id: 'peoria', time: '7:30 PM', city: 'Peoria, IL', stateId: 'IL', venue: 'Prairie Home Alliance Theater', date: 'Dec 5, 2026', x: 670.3, y: 258.7, offset: [-7, 2], anchor: 'end', tz: 'America/Chicago', lat: 40.693, lon: -89.592, milesToNext: 1000 },
             { id: 'orlando', time: '8:00 PM', city: 'Orlando, FL', stateId: 'FL', venue: 'Dr. Phillips Center for the Performing Arts', date: 'Dec 9, 2026', x: 852, y: 517.6, offset: [7, 2], anchor: 'start', tz: 'America/New_York', lat: 28.5375, lon: -81.376, milesToNext: 220 },
             { id: 'fortlauderdale', time: '7:30 PM', city: 'Fort Lauderdale, FL', stateId: 'FL', venue: 'Broward Center', date: 'Dec 10, 2026', x: 885.5, y: 567.4, offset: [7, 4], anchor: 'start', tz: 'America/New_York', lat: 26.1195, lon: -80.152, milesToNext: 260 },
-            { id: 'clearwater', time: '7:30 PM', city: 'Clearwater, FL', stateId: 'FL', venue: 'Ruth Eckerd Hall', date: 'Dec 11, 2026', x: 825.7, y: 534.5, offset: [-7, -3], anchor: 'end', tz: 'America/New_York', lat: 27.9805, lon: -82.713, milesToNext: 60 },
-            { id: 'sarasota', time: '7:00 PM', city: 'Sarasota, FL', stateId: 'FL', venue: 'Van Wezel Performing Arts Hall', date: 'Dec 12, 2026', x: 833, y: 547.8, offset: [-7, 8], anchor: 'end', tz: 'America/New_York', lat: 27.343, lon: -82.547, milesToNext: 0 }
+            { id: 'clearwater', time: '7:30 PM', city: 'Clearwater, FL', stateId: 'FL', venue: 'Ruth Eckerd Hall', date: 'Dec 11, 2026', x: 819.7, y: 523.6, offset: [-7, -3], anchor: 'end', tz: 'America/New_York', lat: 27.9805, lon: -82.713, milesToNext: 60 },
+            { id: 'sarasota', time: '7:00 PM', city: 'Sarasota, FL', stateId: 'FL', venue: 'Van Wezel Performing Arts Hall', date: 'Dec 12, 2026', x: 839, y: 558.7, offset: [-7, 8], anchor: 'end', tz: 'America/New_York', lat: 27.343, lon: -82.547, milesToNext: 0 }
         ];
 
-        let state = { completedCities: [], cityDetails: {}, dragonflyFound: false, profile: { name: '', instruments: [] }, settings: { sounds: true, volume: 70, interactSound: 'click', autoCamera: true, sequential: true, palette: 'night', pace: 'standard', mapStyle: 'antique' } };
+        let state = { completedCities: [], cityDetails: {}, dragonflyFound: false, profile: { name: '', instruments: [] }, settings: { sounds: true, volume: 70, interactSound: 'click', autoCamera: true, sequential: true, palette: 'night', pace: 'standard', mapStyle: 'antique', travelLines: true } };
 
         const MAP = { W: 1025, H: 620, ZOOM: 2.1 };
         let currentActiveCityId = null;
@@ -2171,6 +2195,7 @@
             if (!PALETTES[s.palette]) s.palette = 'night';
             if (!PACE[s.pace]) s.pace = 'standard';
             if (s.mapStyle !== 'modern' && s.mapStyle !== 'antique') s.mapStyle = 'antique';
+            if (typeof s.travelLines !== 'boolean') s.travelLines = true;
             return s;
         }
 
@@ -2528,7 +2553,7 @@
                 const a = ACHV_BY_ID[key];
                 if (!a) return;
                 const id = tourData[i].id;
-                (map[id] = map[id] || []).push({ title: a.title, boss });
+                (map[id] = map[id] || []).push({ title: a.title, boss, key });
             };
             for (let i = 0; i < tourData.length; i++) {
                 const count = i + 1;
@@ -2539,7 +2564,10 @@
                 if (miles >= 10000) mark('10000m', i, false);
                 if (MARQUEE_BADGES[tourData[i].id]) mark('venue-' + tourData[i].id, i, true);
                 if (states.size >= 20) mark('20states', i, true);
-                if (count >= tourData.length - 1) mark('penultimate', i, true);
+                // No Mute King here — with "complete" right next door at the final
+                // stop, two bosses standing shoulder to shoulder read as clutter.
+                // A gold Lag (see buildLagMarker's forceColor) marks it instead.
+                if (count >= tourData.length - 1) mark('penultimate', i, false);
                 if (count >= tourData.length) mark('complete', i, true);
             }
             mkStopsCache = map;
@@ -2694,9 +2722,10 @@
             return u;
         }
 
-        function buildLagMarker(stop, index, isTarget) {
+        function buildLagMarker(stop, index, isTarget, forceColor) {
             const scale = isTarget ? LAG_SCALE_TARGET : LAG_SCALE;
-            const gc = LAG_VARIANTS[index % LAG_VARIANTS.length];
+            const variantIndex = forceColor ? LAG_VARIANTS.indexOf(forceColor) : (index % LAG_VARIANTS.length);
+            const gc = LAG_VARIANTS[variantIndex];
 
             const g = document.createElementNS(LAG_SVGNS, 'g');
             g.setAttribute('class', 'lag-marker city-marker-lag' + (isTarget ? ' lag-target' : ''));
@@ -2725,7 +2754,7 @@
             bob.style.animationDelay = `${(index % 7) * 0.23}s`;
             const body = document.createElementNS(LAG_SVGNS, 'g');
             body.setAttribute('class', 'lag-body');
-            body.appendChild(spriteUse('sprite-lag-' + (index % LAG_VARIANTS.length), scale, LAG_UNIT_W, LAG_UNIT_H));
+            body.appendChild(spriteUse('sprite-lag-' + variantIndex, scale, LAG_UNIT_W, LAG_UNIT_H));
             bob.appendChild(body); g.appendChild(bob);
 
             const title = document.createElementNS(LAG_SVGNS, 'title');
@@ -2858,7 +2887,10 @@
                    stop he is standing on, fall back to the original dot. */
                 const showLag = !isCompleted && !hasKing && (!isCurrent || stop.id === walkTargetId);
                 if (showLag) {
-                    markersGrp.appendChild(buildLagMarker(stop, i, stop.id === walkTargetId));
+                    // The penultimate stop lost its Mute King (see achievementStops) —
+                    // a gold Lag stands in his place instead of a plain green one.
+                    const isPenultimate = badges && badges.some(b => b.key === 'penultimate');
+                    markersGrp.appendChild(buildLagMarker(stop, i, stop.id === walkTargetId, isPenultimate ? '#E5B500' : null));
                 } else {
                     const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
                     circle.setAttribute('cx', stop.x); circle.setAttribute('cy', stop.y);
@@ -3831,7 +3863,7 @@
         }
 
         function setTimelineFilter(f) {
-            timelineFilter = f;
+            timelineFilter = (timelineFilter === f && f !== 'all') ? 'all' : f;
             applyTimelineFilter();
             // Scroll to the first visible card so the filter feels like it did something
             const first = document.querySelector('.timeline-item:not(.filter-hidden)');
@@ -4350,6 +4382,35 @@
         async function removeReceipt(cityId, id) {
             try { await ReceiptStore.del(cityId, id); } catch (e) {}
             if (currentActiveCityId === cityId) renderReceipts(cityId);
+        }
+
+        /* ---------------- RECEIPTS REVIEW (all cities, for the More menu) ---------------- */
+        async function openReceiptsReview() {
+            const content = document.getElementById('receipts-review-content');
+            content.innerHTML = '<p class="empty-note">Loading receipts…</p>';
+            document.getElementById('receipts-overlay').classList.add('active');
+            let receipts = {};
+            try { receipts = await ReceiptStore.all(); } catch (e) {}
+            const cities = tourData.filter(stop => receipts[stop.id] && receipts[stop.id].length);
+            if (!cities.length) { content.innerHTML = '<p class="empty-note">No receipts uploaded yet. Add receipts from a city panel.</p>'; return; }
+            content.innerHTML = cities.map(stop => {
+                const list = receipts[stop.id];
+                const thumbs = list.map(r => `
+                    <div class="receipt-thumb">
+                        <img src="${r.dataUri}" alt="Receipt for ${statEsc(stop.city)}" onclick="window.open('${r.dataUri.replace(/'/g, "\\'")}', '_blank')">
+                        <button type="button" class="receipt-remove" aria-label="Remove receipt" onclick="removeReceiptFromReview('${statEsc(stop.id)}','${statEsc(r.id)}')">&times;</button>
+                    </div>`).join('');
+                return `<div class="log-entry">
+                    <h4 style="cursor:pointer" onclick="closePanel('receipts-overlay');openCityPanel('${statEsc(stop.id)}')">${stop.city} <span style="font-size:0.8rem;font-weight:normal;color:#94a3b8;">(${list.length} receipt${list.length === 1 ? '' : 's'})</span></h4>
+                    <div class="log-date">${stop.date} &middot; ${stop.venue}</div>
+                    <div class="receipt-grid" style="margin-top:10px">${thumbs}</div>
+                </div>`;
+            }).join('');
+        }
+        async function removeReceiptFromReview(cityId, id) {
+            try { await ReceiptStore.del(cityId, id); } catch (e) {}
+            if (currentActiveCityId === cityId) renderReceipts(cityId);
+            openReceiptsReview();
         }
 
         /* ---------------- MAINTENANCE LOG ---------------- */
@@ -5276,6 +5337,19 @@
             setPalette(state.settings.palette);
             setJourneyPace(state.settings.pace);
             setMapStyle(state.settings.mapStyle);
+            applyTravelLinesSetting();
+        }
+
+        function applyTravelLinesSetting() {
+            const on = state.settings.travelLines !== false;
+            document.getElementById('map-container').classList.toggle('hide-travel-lines', !on);
+            const btn = document.getElementById('route-toggle');
+            if (btn) btn.setAttribute('aria-pressed', String(on));
+        }
+        function toggleTravelLines() {
+            state.settings.travelLines = state.settings.travelLines === false;
+            applyTravelLinesSetting();
+            saveState();
         }
     </script>
 
