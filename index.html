@@ -602,6 +602,10 @@
             background: rgba(123,90,151,0.14); transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,0.3);
         }
         .timeline-item.fav::before { content: "\2605"; position: absolute; top: 8px; left: 10px; color: var(--gold-glow); font-size: 0.8rem; }
+        .timeline-item .tl-entry-dot {
+            position: absolute; bottom: 7px; right: 10px; width: 6px; height: 6px;
+            border-radius: 50%; background: var(--heather-glow); box-shadow: 0 0 4px rgba(123,90,151,0.7);
+        }
         .timeline-item.dim-search { opacity: 0.12; }
         .timeline-item.filter-hidden { display: none; }
 
@@ -760,6 +764,8 @@
         }
         .pill button:hover { opacity: 1; }
         .pill-empty-note { color: var(--text-muted); font-size: 0.85rem; font-style: italic; margin-top: 10px; }
+        .last-edited-note { color: var(--text-muted); font-size: 0.78rem; margin: 4px 0 10px; }
+        .last-edited-note:empty { display: none; }
 
         /* Per-instrument checklist inside a show's log: checkbox + a note box that
            only appears once that instrument is checked. */
@@ -1615,6 +1621,7 @@
             <span class="section-label">Instrument Checklist</span>
             <div id="panel-instrument-checklist"></div>
 
+            <p id="panel-last-edited" class="last-edited-note"></p>
             <button class="btn btn-complete" id="panel-complete-btn" onclick="toggleCityCompletion()">Mark as Completed</button>
             <button class="btn btn-ghost" onclick="saveCityData(true)">Save Notes</button>
         </div>
@@ -1710,6 +1717,7 @@
             <button class="btn btn-ghost" onclick="exportData();closePanel('export-overlay')">Export backup</button>
             <button class="btn btn-ghost" onclick="exportCSV();closePanel('export-overlay')">Export as Excel (CSV)</button>
             <button class="btn btn-ghost" onclick="exportPDF();closePanel('export-overlay')">Export as PDF</button>
+            <button class="btn btn-ghost" onclick="exportDiary();closePanel('export-overlay')">Export Diary (Markdown)</button>
             <button class="btn btn-ghost" onclick="exportTourICS();closePanel('export-overlay')">Export Tour to Calendar</button>
         </div>
     </div>
@@ -3639,6 +3647,22 @@
             const p = splitCity(stop);
             return p.state ? `${p.city}, ${p.state}` : p.city;
         }
+        // Whether a stop has any actual writing/media logged against it — used to
+        // mark the timeline as a browsable log rather than just an itinerary.
+        // Deliberately narrower than buildPDFReport()'s own hasData check below:
+        // this one skips favorite/completed/spent-only stops on purpose, since
+        // those already get their own indicators (star, checkmark, $ totals) —
+        // don't fold the two together, each one exists for a different question.
+        function cityHasJournalEntry(id) {
+            const d = state.cityDetails[id];
+            if (!d) return false;
+            if (d.notes && d.notes.trim()) return true;
+            if (d.expenseNotes && d.expenseNotes.trim()) return true;
+            if (d.socialNote && d.socialNote.trim()) return true;
+            if (d.hasPhoto) return true;
+            if (d.instrumentLogs && Object.values(d.instrumentLogs).some(n => n && n.trim())) return true;
+            return false;
+        }
         function kpi(num, lbl) {
             return `<div class="stat-kpi"><div class="k-num">${num}</div><div class="k-lbl">${statEsc(lbl)}</div></div>`;
         }
@@ -3973,6 +3997,7 @@
                 const isCompleted = state.completedCities.includes(stop.id);
                 const isCurrent = index === curIdx;
                 const isFav = state.cityDetails[stop.id] && state.cityDetails[stop.id].favorite;
+                const hasEntry = cityHasJournalEntry(stop.id);
                 const div = document.createElement('div');
                 div.className = `timeline-item ${isCompleted ? 'completed' : ''} ${isCurrent ? 'current' : ''} ${isFav ? 'fav' : ''}`;
                 div.dataset.id = stop.id;
@@ -3980,10 +4005,10 @@
                 div.dataset.venue = (stop.venue || '').toLowerCase();
                 div.setAttribute('tabindex', '0');
                 div.setAttribute('role', 'button');
-                div.setAttribute('aria-label', `${stop.city}, ${stop.date}`);
+                div.setAttribute('aria-label', `${stop.city}, ${stop.date}${hasEntry ? ', has a logged entry' : ''}`);
                 const showtime = showTimeWithZone(stop, state.cityDetails[stop.id] && state.cityDetails[stop.id].showtime);
-                div.title = 'Showtime is venue-local (' + (stop.tz || DEFAULT_TZ) + ')';
-                div.innerHTML = `<div class="timeline-date">${stop.date}</div><div class="timeline-city">${stop.city.split(',')[0]}</div><div class="timeline-time">${showtime}</div>`;
+                div.title = 'Showtime is venue-local (' + (stop.tz || DEFAULT_TZ) + ')' + (hasEntry ? ' — has a logged entry' : '');
+                div.innerHTML = `<div class="timeline-date">${stop.date}</div><div class="timeline-city">${stop.city.split(',')[0]}</div><div class="timeline-time">${showtime}</div>${hasEntry ? '<span class="tl-entry-dot"></span>' : ''}`;
                 div.addEventListener('click', () => openCityPanel(stop.id));
                 div.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openCityPanel(stop.id); } });
                 tl.appendChild(div);
@@ -4387,6 +4412,7 @@
             else { badge.textContent = 'Upcoming'; badge.className = 'cic-chip status-upcoming'; }
             document.getElementById('panel-notes').value = data.notes || '';
             document.getElementById('panel-favorite').checked = data.favorite || false;
+            renderLastEdited(data);
             const exp = data.expenses || {};
             document.getElementById('exp-equipment').value = exp.equipment || '';
             document.getElementById('exp-food').value = exp.food || '';
@@ -4443,6 +4469,7 @@
                 instrumentLogs[name] = row.querySelector('.inst-log-note').value;
             });
             const prev = state.cityDetails[currentActiveCityId] || {};
+            const now = new Date().toISOString();
             state.cityDetails[currentActiveCityId] = {
                 ...prev,
                 notes: document.getElementById('panel-notes').value,
@@ -4455,12 +4482,27 @@
                     drink: +document.getElementById('exp-drink').value || 0
                 },
                 budgetTarget: +document.getElementById('exp-budget').value || 0,
-                expenseNotes: document.getElementById('panel-expense-notes').value
+                expenseNotes: document.getElementById('panel-expense-notes').value,
+                // createdAt predates entries saved before this field existed, so it's
+                // only ever backfilled — never rewritten — on those older entries.
+                createdAt: prev.createdAt || now,
+                updatedAt: now
             };
             const ok = saveState();
             checkAchievements();
             updateDashboard(); renderTimeline();
+            renderLastEdited(state.cityDetails[currentActiveCityId]);
             if (showConfirm && ok) showToast('Saved ✓', 'ok');
+        }
+        // Small "last edited" caption in the city panel — the only place that
+        // records when a note/expense entry was actually written, as opposed to
+        // the show's own (often unrelated) date.
+        function renderLastEdited(data) {
+            const el = document.getElementById('panel-last-edited');
+            if (!el) return;
+            if (!data || !data.updatedAt) { el.textContent = ''; return; }
+            const d = new Date(data.updatedAt);
+            el.textContent = isNaN(d) ? '' : `Last edited ${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })} at ${d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`;
         }
 
         // Live-updates the city panel's budget bar as the user types, before Save is hit.
@@ -5238,7 +5280,7 @@
         async function exportCSV() {
             let receiptsByCity = {};
             try { receiptsByCity = await ReceiptStore.all(); } catch (e) {}
-            const cols = ['City', 'State', 'Venue', 'Date', 'Time', 'Timezone', 'Played', 'Favorite', 'Equipment', 'Food', 'Drink', 'Total Spent', 'Expense Notes', 'Receipts', 'Social Media Done', 'Social Notes', 'Instrument Notes', 'Personal Notes'];
+            const cols = ['City', 'State', 'Venue', 'Date', 'Time', 'Timezone', 'Played', 'Favorite', 'Equipment', 'Food', 'Drink', 'Total Spent', 'Expense Notes', 'Receipts', 'Social Media Done', 'Social Notes', 'Instrument Notes', 'Personal Notes', 'Last Edited'];
             const rows = [cols];
             tourData.forEach(stop => {
                 const d = state.cityDetails[stop.id] || {};
@@ -5257,7 +5299,8 @@
                     (d.socials || []).join('; '),
                     d.socialNote || '',
                     instrumentNotes,
-                    d.notes || ''
+                    d.notes || '',
+                    formatEditedStamp(d.updatedAt)
                 ]);
             });
             const csv = rows.map(r => r.map(csvEscape).join(',')).join('\r\n');
@@ -5266,6 +5309,60 @@
             const a = document.createElement('a'); a.href = url; a.download = 'tour_companion_data.csv'; a.click();
             URL.revokeObjectURL(url);
             showToast('Excel export ready ✓', 'ok');
+        }
+
+        /* ---------------- DIARY EXPORT (.md) ----------------
+           CSV is spreadsheet-shaped and PDF is a print recap — neither is meant
+           to be read back like writing. This walks the tour in date order and
+           lays out just the prose (notes, social notes, instrument notes,
+           expense notes) as Markdown, skipping stops with nothing written
+           against them so an early-tour export isn't 60 empty headings. */
+        const SOCIAL_LABELS = { reel: 'IG Reel', story: 'IG Story', tiktok: 'TikTok', shorts: 'YT Short' };
+        function formatEditedStamp(iso) {
+            const d = new Date(iso);
+            if (!iso || isNaN(d)) return '';
+            return `${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })} at ${d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`;
+        }
+        function buildDiaryMarkdown() {
+            const profile = state.profile || {};
+            const lines = ['# Outlander in Concert — Tour Diary'];
+            if (profile.name) lines.push(`*${profile.name}*`);
+            lines.push(`*Exported ${new Date().toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}*`, '');
+
+            let any = false;
+            tourData.forEach(stop => {
+                const d = state.cityDetails[stop.id] || {};
+                const played = state.completedCities.includes(stop.id);
+                if (!played && !d.favorite && !cityHasJournalEntry(stop.id)) return;
+                any = true;
+
+                const badges = [stop.date, played ? 'Played' : 'Upcoming', d.favorite ? '★ Favorite' : ''].filter(Boolean);
+                lines.push(`## ${cityState(stop)} — ${stop.venue}`, `*${badges.join(' · ')}*`, '');
+                if (d.notes && d.notes.trim()) lines.push(d.notes.trim(), '');
+
+                const socialTags = (d.socials || []).map(s => SOCIAL_LABELS[s] || s).join(', ');
+                if (socialTags || (d.socialNote && d.socialNote.trim())) {
+                    lines.push(`**Social:** ${socialTags}${d.socialNote && d.socialNote.trim() ? ' — ' + d.socialNote.trim() : ''}`);
+                }
+                const instrumentEntries = Object.entries(d.instrumentLogs || {}).filter(([, note]) => note && note.trim());
+                if (instrumentEntries.length) {
+                    lines.push(`**Instruments:** ` + instrumentEntries.map(([name, note]) => `${name} — ${note.trim()}`).join('; '));
+                }
+                if (d.expenseNotes && d.expenseNotes.trim()) lines.push(`**Expense notes:** ${d.expenseNotes.trim()}`);
+
+                const stamp = formatEditedStamp(d.updatedAt);
+                if (stamp) lines.push('', `_Last edited ${stamp}_`);
+                lines.push('', '---', '');
+            });
+            if (!any) lines.push('*Nothing logged yet — open a city and add some notes.*');
+            return lines.join('\n');
+        }
+        function exportDiary() {
+            const blob = new Blob([buildDiaryMarkdown()], { type: 'text/markdown;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href = url; a.download = 'outlander-tour-diary.md'; a.click();
+            URL.revokeObjectURL(url);
+            showToast('Diary exported ✓', 'ok');
         }
 
         /* ---------------- CALENDAR EXPORT (.ics) ----------------
@@ -5428,6 +5525,9 @@
                 const instrumentEntries = Object.entries(d.instrumentLogs || {}).filter(([, note]) => note && note.trim());
                 const receipts = receiptsByCity[stop.id] || [];
                 const receiptCount = receipts.length;
+                // Deliberately broader than cityHasJournalEntry() above: the PDF recap
+                // should still give a stop its own section for a receipt or a logged
+                // expense even with zero prose, so don't narrow this to match that check.
                 const hasData = state.completedCities.includes(stop.id) || d.favorite || spent > 0
                     || d.notes || d.expenseNotes || instrumentEntries.length
                     || (d.socials || []).length || d.hasPhoto || receiptCount;
