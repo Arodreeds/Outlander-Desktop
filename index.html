@@ -95,9 +95,11 @@
         header {
             background:
                 linear-gradient(90deg, rgba(14,18,16,0.94) 0%, rgba(14,18,16,0.74) 42%, rgba(14,18,16,0.42) 100%),
+                url("images/header-photo.jpg"),
                 linear-gradient(120deg, #1c2a22, #21182b);
-            background-size: cover, cover;
-            background-position: center 32%;
+            background-size: cover, cover, cover;
+            background-position: center 32%, center 32%, center 32%;
+            background-repeat: no-repeat, no-repeat, no-repeat;
             padding: 12px 18px 11px;
             min-height: 64px;
             display: flex;
@@ -133,7 +135,11 @@
         }
 
         .header-welcome {
-            flex: 1 1 auto; min-width: 0; text-align: center;
+            /* Absolutely centered on the header itself — .brand and .toolbar aren't the
+               same width, so centering this within the flex row's leftover space (its
+               old flex:1 1 auto layout) drifted off the header's true center. */
+            position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+            max-width: min(38%, 420px); text-align: center; pointer-events: none;
             font-family: var(--font-display); color: var(--gold); font-size: 0.98rem;
             letter-spacing: 1px; text-shadow: 0 2px 4px rgba(0,0,0,0.8);
             overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -145,9 +151,9 @@
         .search-wrap input {
             background: var(--night-2); border: 1px solid var(--slate-light);
             color: var(--text-main); padding: 8px 26px 8px 30px; border-radius: 20px;
-            font-size: 0.85rem; width: 150px; transition: var(--transition); font-family: var(--font-body);
+            font-size: 0.85rem; width: 190px; transition: var(--transition); font-family: var(--font-body);
         }
-        .search-wrap input:focus { outline: none; border-color: var(--gold); width: 190px; }
+        .search-wrap input:focus { outline: none; border-color: var(--gold); }
         .search-wrap::before {
             content: "\1F50D"; position: absolute; left: 9px; top: 50%; transform: translateY(-50%);
             font-size: 0.8rem; opacity: 0.6; pointer-events: none;
@@ -474,6 +480,24 @@
         /* Compass rose */
         .compass { position: absolute; left: 16px; bottom: 16px; width: 92px; height: 92px; z-index: 6; opacity: 0.85; pointer-events: none; filter: drop-shadow(0 3px 6px rgba(0,0,0,0.6)); }
 
+        /* Weather — occupies the compass's corner when a forecast is available */
+        .map-weather {
+            position: absolute; left: 16px; bottom: 16px; width: 92px; height: 92px; z-index: 6;
+            pointer-events: none; border-radius: 50%;
+            background: radial-gradient(circle at 50% 40%, #233029 0%, #151d1b 70%, #0d1311 100%);
+            border: 1.8px solid var(--gold); box-shadow: 0 3px 6px rgba(0,0,0,0.6);
+            display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+        }
+        .map-weather .mw-icon { font-size: 1.9rem; line-height: 1; }
+        .map-weather .mw-temp {
+            font-family: var(--font-display); color: var(--gold-glow); font-size: 0.82rem;
+            font-weight: 700; letter-spacing: 0.3px;
+        }
+        .map-weather .mw-city {
+            font-size: 0.58rem; color: var(--parchment-dim); text-transform: uppercase;
+            letter-spacing: 0.6px; max-width: 78px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+
         /* Legend */
         .legend {
             position: absolute; left: 16px; top: 16px; z-index: 15;
@@ -762,6 +786,19 @@
         #maintenance-summary strong { color: var(--gold-glow); font-family: var(--font-display); }
         .expense-grid label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); }
 
+        .budget-bar-track {
+            width: 100%; height: 7px; border-radius: 4px; background: rgba(255,255,255,0.08);
+            overflow: hidden; margin-top: 8px;
+        }
+        .budget-bar-fill { height: 100%; border-radius: 4px; width: 0%; transition: width 0.4s ease, background-color 0.4s ease; background: var(--moss-glow); }
+        .budget-bar-fill.over { background: var(--tartan-red-glow); }
+        .budget-bar-fill.near { background: var(--gold-glow); }
+        .budget-bar-label { font-size: 0.72rem; color: var(--text-muted); margin-top: 4px; display: flex; justify-content: space-between; gap: 8px; }
+        .budget-bar-label .over-amt { color: var(--tartan-red-glow); font-weight: 600; }
+
+        .stat-weather-row { font-size: 0.88rem; color: var(--text-muted); margin: -10px 0 16px; min-height: 1em; }
+        .stat-weather-row:empty { display: none; }
+
         .btn {
             display: block; width: 100%; padding: 13px; background: var(--gold); color: #1a130a;
             border: none; border-radius: var(--radius); font-family: var(--font-display); font-weight: 600;
@@ -839,6 +876,12 @@
         .toast.show { transform: translateX(0); }
         .toast.warn { color: var(--tartan-red-glow); border-color: var(--tartan-red); }
         .toast.ok { color: var(--moss-glow); border-color: var(--moss); }
+        .toast.undo { pointer-events: auto; }
+        .toast-undo-btn {
+            background: none; border: 1px solid currentColor; color: inherit; border-radius: 20px;
+            padding: 4px 12px; font-weight: 700; font-size: 0.82rem; cursor: pointer; flex: 0 0 auto;
+        }
+        .toast-undo-btn:hover { background: rgba(240,207,122,0.15); }
         /* Achievements are a small unobtrusive pill, not a full toast */
         .toast.achv {
             padding: 6px 12px; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.3px;
@@ -899,6 +942,7 @@
         /* Map Style tweak: Modern strips the antique-map flourishes for a flat, clean look */
         body.map-style-modern .map-corner,
         body.map-style-modern .compass { display: none; }
+        body.map-style-modern .map-weather { display: none !important; }
         body.map-style-modern header::after { content: none; }
         body.map-style-modern .map-container::before { background-image: none; }
         body.map-style-modern .legend { border-radius: 6px; box-shadow: none; }
@@ -914,8 +958,7 @@
             .toolbar button { padding: 7px 10px; font-size: 0.75rem; }
             .side-panel { width: 100%; border-left: none; }
             .legend { max-width: 150px; font-size: 0.68rem; }
-            .search-wrap input { width: 110px; }
-            .search-wrap input:focus { width: 140px; }
+            .search-wrap input { width: 140px; }
         }
 
         /* City detail info card (under the city name) */
@@ -1122,6 +1165,16 @@
         #pdf-report .pdf-field .v { white-space: pre-wrap; }
         #pdf-report .pdf-empty { font-size: 9pt; color: #888; font-style: italic; }
 
+        #pdf-report .pdf-receipts { margin: 6px 0 3px; }
+        #pdf-report .pdf-receipts .k {
+            font-size: 7.5pt; text-transform: uppercase; letter-spacing: 0.8px; color: #777; display: block; margin-bottom: 4px;
+        }
+        #pdf-report .pdf-receipt-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+        #pdf-report .pdf-receipt-thumb {
+            width: 90px; height: 90px; object-fit: cover; border: 1px solid #d8cfb4;
+            break-inside: avoid; page-break-inside: avoid;
+        }
+
         #pdf-report .pdf-table {
             width: 100%; border-collapse: collapse; font-size: 9pt; margin-bottom: 10px;
             break-inside: avoid; page-break-inside: avoid;
@@ -1316,6 +1369,13 @@
             </g>
         </svg>
 
+        <!-- Swaps in for the compass once a forecast exists for the upcoming show (~16 days out) -->
+        <div class="map-weather" id="map-weather" style="display:none">
+            <div class="mw-icon" id="map-weather-icon"></div>
+            <div class="mw-temp" id="map-weather-temp"></div>
+            <div class="mw-city" id="map-weather-city"></div>
+        </div>
+
         <!-- Legend -->
         <div class="legend" id="legend">
             <button class="close-legend" onclick="toggleLegend(false)" aria-label="Hide legend">×</button>
@@ -1324,6 +1384,7 @@
             <div class="row"><span class="dot cur"></span> Up next</div>
             <div class="row"><span class="dot up"></span> Still ahead</div>
             <div class="row"><span class="line" style="border-color:var(--moss-glow)"></span> Road travelled</div>
+            <div class="row"><span class="line" style="border-color:var(--heather-glow); border-top-width:4px"></span> Current leg</div>
             <div class="row"><span class="line" style="border-color:var(--gray-upcoming); border-top-style:dashed"></span> Road ahead</div>
         </div>
         <button id="legend-reopen" onclick="toggleLegend(true)">Legend</button>
@@ -1515,10 +1576,16 @@
             <div class="form-group">
                 <span class="section-label">Expenses ($)</span>
                 <div class="expense-grid">
-                    <div><label>Equipment</label><input type="number" min="0" step="1" class="expense-input" id="exp-equipment" placeholder="0"></div>
-                    <div><label>Food</label><input type="number" min="0" step="1" class="expense-input" id="exp-food" placeholder="0"></div>
-                    <div><label>Drink</label><input type="number" min="0" step="1" class="expense-input" id="exp-drink" placeholder="0"></div>
+                    <div><label>Equipment</label><input type="number" min="0" step="1" class="expense-input" id="exp-equipment" placeholder="0" oninput="updatePanelBudgetBar()"></div>
+                    <div><label>Food</label><input type="number" min="0" step="1" class="expense-input" id="exp-food" placeholder="0" oninput="updatePanelBudgetBar()"></div>
+                    <div><label>Drink</label><input type="number" min="0" step="1" class="expense-input" id="exp-drink" placeholder="0" oninput="updatePanelBudgetBar()"></div>
                 </div>
+                <label style="margin-top:10px">Budget Target ($)</label>
+                <input type="number" min="0" step="1" class="expense-input" id="exp-budget" placeholder="No target set" style="width:100%" oninput="updatePanelBudgetBar()">
+                <div class="budget-bar-track" id="panel-budget-bar-track" style="display:none">
+                    <div class="budget-bar-fill" id="panel-budget-bar-fill"></div>
+                </div>
+                <div class="budget-bar-label" id="panel-budget-bar-label" style="display:none"></div>
             </div>
 
             <div class="form-group">
@@ -3250,6 +3317,37 @@
             }
         });
 
+        /* ---------------- KEYBOARD SHORTCUTS ---------------- */
+        // / or Cmd/Ctrl+F jumps to search; arrow keys pan the map — both skipped while
+        // typing somewhere else or while a panel is open, so they never hijack normal input.
+        function isTypingTarget(el) {
+            if (!el) return false;
+            const tag = el.tagName;
+            return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable;
+        }
+        const MAP_PAN_STEP = 80;
+        function panMapByKey(dx, dy) {
+            disableAutoCam(); cancelTravelPan();
+            transX += dx; transY += dy;
+            applyTransform(true);
+        }
+        document.addEventListener('keydown', e => {
+            if (isTypingTarget(e.target)) return;
+            if (e.key === '/' || ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'f')) {
+                e.preventDefault();
+                const input = document.getElementById('search-input');
+                if (input) { input.focus(); input.select(); }
+                return;
+            }
+            if (document.querySelector('.panel-overlay.active')) return;
+            switch (e.key) {
+                case 'ArrowUp': e.preventDefault(); panMapByKey(0, MAP_PAN_STEP); break;
+                case 'ArrowDown': e.preventDefault(); panMapByKey(0, -MAP_PAN_STEP); break;
+                case 'ArrowLeft': e.preventDefault(); panMapByKey(MAP_PAN_STEP, 0); break;
+                case 'ArrowRight': e.preventDefault(); panMapByKey(-MAP_PAN_STEP, 0); break;
+            }
+        });
+
         /* ---------------- DASHBOARD ---------------- */
         function parseShowDate(str) { const d = new Date(str); return isNaN(d) ? null : d; }
 
@@ -3286,6 +3384,139 @@
                 if (e) sum += (+e.equipment || 0) + (+e.food || 0) + (+e.drink || 0);
             });
             return sum;
+        }
+        function citySpent(id) {
+            const e = (state.cityDetails[id] || {}).expenses || {};
+            return (+e.equipment || 0) + (+e.food || 0) + (+e.drink || 0);
+        }
+        // A city only loses the $47 default once it has an explicit (even zero) target saved —
+        // an unopened city, or one whose panel was saved before budgets existed, still gets it.
+        const DEFAULT_CITY_BUDGET = 47;
+        function cityBudgetTarget(id) {
+            const d = state.cityDetails[id];
+            const raw = d && d.budgetTarget;
+            return (raw === undefined || raw === null) ? DEFAULT_CITY_BUDGET : (+raw || 0);
+        }
+        function totalBudgetTarget() {
+            let sum = 0;
+            tourData.forEach(stop => { sum += cityBudgetTarget(stop.id); });
+            return sum;
+        }
+        // Fills a shared .budget-bar-track/.budget-bar-fill/.budget-bar-label trio.
+        // Hides the whole widget when no target is set — an empty bar isn't useful.
+        function renderBudgetBar(trackEl, fillEl, labelEl, spent, target) {
+            if (!trackEl || !fillEl || !labelEl) return;
+            if (!target) { trackEl.style.display = 'none'; labelEl.style.display = 'none'; return; }
+            const ratio = spent / target;
+            trackEl.style.display = 'block'; labelEl.style.display = 'flex';
+            fillEl.style.width = Math.min(ratio, 1) * 100 + '%';
+            fillEl.classList.toggle('over', ratio > 1);
+            fillEl.classList.toggle('near', ratio > 0.85 && ratio <= 1);
+            const pct = Math.round(ratio * 100);
+            labelEl.innerHTML = ratio > 1
+                ? `<span>$${spent.toLocaleString()} of $${target.toLocaleString()}</span><span class="over-amt">$${(spent - target).toLocaleString()} over</span>`
+                : `<span>$${spent.toLocaleString()} of $${target.toLocaleString()}</span><span>${pct}%</span>`;
+        }
+        // Same widget as renderBudgetBar, but as a markup string for the stat-detail panel
+        // (that panel is built as one big innerHTML string rather than live DOM nodes).
+        function budgetBarHtml(spent, target) {
+            if (!target) return '';
+            const ratio = spent / target;
+            const cls = ratio > 1 ? 'over' : (ratio > 0.85 ? 'near' : '');
+            const labelHtml = ratio > 1
+                ? `<span>$${spent.toLocaleString()} of $${target.toLocaleString()}</span><span class="over-amt">$${(spent - target).toLocaleString()} over</span>`
+                : `<span>$${spent.toLocaleString()} of $${target.toLocaleString()}</span><span>${Math.round(ratio * 100)}%</span>`;
+            return `<div class="budget-bar-track"><div class="budget-bar-fill ${cls}" style="width:${Math.min(ratio, 1) * 100}%"></div></div>
+                    <div class="budget-bar-label">${labelHtml}</div>`;
+        }
+
+        /* ---------------- WEATHER ----------------
+           Open-Meteo's free forecast endpoint needs no API key, but only covers
+           ~16 days out — for a stop months away it simply returns no matching
+           date, which reads here as "unavailable" rather than an error. */
+        const WEATHER_TTL_MS = 30 * 60 * 1000;
+        const weatherCache = {};
+        const WMO_ICON = {
+            0: '☀️', 1: '🌤️', 2: '⛅', 3: '☁️', 45: '🌫️', 48: '🌫️',
+            51: '🌦️', 53: '🌦️', 55: '🌦️', 56: '🌧️', 57: '🌧️',
+            61: '🌧️', 63: '🌧️', 65: '🌧️', 66: '🌧️', 67: '🌧️',
+            71: '🌨️', 73: '🌨️', 75: '🌨️', 77: '🌨️',
+            80: '🌦️', 81: '🌧️', 82: '⛈️', 85: '🌨️', 86: '🌨️',
+            95: '⛈️', 96: '⛈️', 99: '⛈️'
+        };
+        function showIsoDate(stop) {
+            const d = new Date(stop.date);
+            return isNaN(d) ? null : d.toISOString().slice(0, 10);
+        }
+        // Open-Meteo's free forecast endpoint only covers roughly "today" through +15 days —
+        // asking outside that window 400s. Checking client-side skips the doomed request
+        // entirely instead of just catching the failure after the fact.
+        function withinForecastRange(iso) {
+            const daysAhead = (new Date(iso + 'T00:00:00Z').getTime() - Date.now()) / 86400000;
+            return daysAhead >= -1 && daysAhead <= 15;
+        }
+        async function fetchShowWeather(stop) {
+            if (stop.lat == null || stop.lon == null) return null;
+            const iso = showIsoDate(stop);
+            if (!iso) return null;
+            const key = `${stop.id}:${iso}`;
+            const cached = weatherCache[key];
+            if (cached && (cached.pending || (Date.now() - cached.fetchedAt < WEATHER_TTL_MS))) return cached;
+            if (!withinForecastRange(iso)) { weatherCache[key] = { fetchedAt: Date.now(), tooFar: true }; return weatherCache[key]; }
+            weatherCache[key] = { pending: true };
+            try {
+                const url = `https://api.open-meteo.com/v1/forecast?latitude=${stop.lat}&longitude=${stop.lon}` +
+                    `&daily=weathercode,temperature_2m_max,temperature_2m_min&temperature_unit=fahrenheit` +
+                    `&timezone=auto&start_date=${iso}&end_date=${iso}`;
+                const res = await fetch(url);
+                const data = await res.json();
+                if (data && data.daily && data.daily.time && data.daily.time.length) {
+                    weatherCache[key] = {
+                        fetchedAt: Date.now(), code: data.daily.weathercode[0],
+                        hi: Math.round(data.daily.temperature_2m_max[0]), lo: Math.round(data.daily.temperature_2m_min[0])
+                    };
+                } else {
+                    weatherCache[key] = { fetchedAt: Date.now(), unavailable: true };
+                }
+            } catch (e) {
+                weatherCache[key] = { fetchedAt: Date.now(), unavailable: true };
+            }
+            return weatherCache[key];
+        }
+        function weatherText(w) {
+            if (!w || w.pending || w.unavailable) return '';
+            if (w.tooFar) return 'Forecast opens 15 days before showtime';
+            return `${WMO_ICON[w.code] || '🌡️'} ${w.hi}° / ${w.lo}°F`;
+        }
+        // Fire-and-forget: fills the element in once the (possibly cached) forecast resolves.
+        async function renderStopWeather(stop, elId) {
+            const el = document.getElementById(elId);
+            if (!el) return;
+            if (!stop) { el.textContent = ''; return; }
+            el.textContent = weatherText(weatherCache[`${stop.id}:${showIsoDate(stop)}`]);
+            const w = await fetchShowWeather(stop);
+            const stillThere = document.getElementById(elId);
+            if (stillThere) stillThere.textContent = weatherText(w);
+        }
+        // The map corner shows the antique compass by default; when a forecast actually
+        // exists for the upcoming show it swaps in the weather widget in its place.
+        function applyMapCornerWeather(stop, w) {
+            const widget = document.getElementById('map-weather');
+            const compass = document.querySelector('.compass');
+            if (!widget || !compass) return;
+            const hasForecast = stop && w && !w.pending && !w.unavailable && !w.tooFar;
+            widget.style.display = hasForecast ? 'flex' : 'none';
+            compass.style.display = hasForecast ? 'none' : '';
+            if (!hasForecast) return;
+            document.getElementById('map-weather-icon').textContent = WMO_ICON[w.code] || '🌡️';
+            document.getElementById('map-weather-temp').textContent = `${w.hi}° / ${w.lo}°F`;
+            document.getElementById('map-weather-city').textContent = stop.city.split(',')[0];
+        }
+        async function renderMapCornerWeather(stop) {
+            if (!stop) { applyMapCornerWeather(null, null); return; }
+            applyMapCornerWeather(stop, weatherCache[`${stop.id}:${showIsoDate(stop)}`]);
+            const w = await fetchShowWeather(stop);
+            applyMapCornerWeather(stop, w);
         }
         /* ---------------- TIMEZONES ----------------
            Every stop carries an IANA `tz`. All conversion goes through Intl so that
@@ -3370,10 +3601,11 @@
             document.getElementById('stat-shows').textContent = `${completedCount} / ${totalCount}`;
             document.getElementById('stat-percent').textContent = `${pct}%`;
             const curIdx = tourData.findIndex(s => !state.completedCities.includes(s.id));
-            if (curIdx === -1) { document.getElementById('stat-current').textContent = 'Complete!'; document.getElementById('stat-next').textContent = '-'; }
+            if (curIdx === -1) { document.getElementById('stat-current').textContent = 'Complete!'; document.getElementById('stat-next').textContent = '-'; renderMapCornerWeather(null); }
             else {
                 document.getElementById('stat-current').textContent = tourData[curIdx].city.split(',')[0];
                 document.getElementById('stat-next').textContent = curIdx + 1 < totalCount ? tourData[curIdx + 1].city.split(',')[0] : 'None';
+                renderMapCornerWeather(tourData[curIdx]);
             }
             const tally = completedTotals();
             const statesVisited = new Set(tally.states);
@@ -3489,6 +3721,7 @@
             return `
                 <div class="stat-lead">${statEsc(p.city)}</div>
                 <div class="stat-lead-sub">${statEsc(p.state)} &middot; stop ${idx + 1} of ${tourData.length}</div>
+                <div class="stat-weather-row" id="stat-weather-current"></div>
                 <div class="stat-rows">
                     <div class="stat-row"><span class="who">Venue</span><span class="amt">${statEsc(stop.venue)}</span></div>
                     <div class="stat-row"><span class="who">Date</span><span class="amt">${statEsc(stop.date)}</span></div>
@@ -3509,6 +3742,7 @@
             return `
                 <div class="stat-lead">${statEsc(p.city)}</div>
                 <div class="stat-lead-sub">${statEsc(p.state)} &middot; stop ${idx + 2} of ${tourData.length}</div>
+                <div class="stat-weather-row" id="stat-weather-next"></div>
                 <div class="stat-rows">
                     <div class="stat-row"><span class="who">Venue</span><span class="amt">${statEsc(stop.venue)}</span></div>
                     <div class="stat-row"><span class="who">Date</span><span class="amt">${statEsc(stop.date)}</span></div>
@@ -3622,8 +3856,24 @@
                 <div class="stat-lead-sub">Nothing logged yet</div>
                 ${emptyNote('Add expenses from any city panel and the breakdown appears here.')}`;
 
+            const grandTarget = totalBudgetTarget();
             let html = `<div class="stat-lead">$${grand.toLocaleString()}</div>
-                        <div class="stat-lead-sub">Total logged across the tour</div>`;
+                        <div class="stat-lead-sub">Total logged across the tour</div>
+                        ${budgetBarHtml(grand, grandTarget)}`;
+
+            const budgeted = tourData.filter(stop => cityBudgetTarget(stop.id) > 0);
+            if (budgeted.length) {
+                html += `<div class="stat-group">
+                        <div class="stat-group-head"><span class="g-name">Budget by City</span><span class="g-total">$${grand.toLocaleString()} / $${grandTarget.toLocaleString()}</span></div>
+                        <div class="stat-rows">
+                            ${budgeted.map(stop => {
+                                const spent = citySpent(stop.id), target = cityBudgetTarget(stop.id);
+                                const over = spent > target;
+                                return `<div class="stat-row clickable" data-goto="${statEsc(stop.id)}"><span class="who">${statEsc(cityState(stop))}</span><span class="amt" style="${over ? 'color:var(--tartan-red-glow)' : ''}">$${spent.toLocaleString()} / $${target.toLocaleString()}</span></div>`;
+                            }).join('')}
+                        </div>
+                    </div>`;
+            }
 
             SPEND_CATS.forEach(cat => {
                 const entries = [];
@@ -3669,6 +3919,9 @@
             } catch (e) {
                 body.innerHTML = emptyNote('Could not build this view.');
             }
+            const idx = firstIncompleteIndex();
+            if (key === 'current' && idx !== -1) renderStopWeather(tourData[idx], 'stat-weather-current');
+            else if (key === 'next' && idx !== -1 && idx + 1 < tourData.length) renderStopWeather(tourData[idx + 1], 'stat-weather-next');
             // Rows that name a stop jump straight into its log.
             body.querySelectorAll('[data-goto]').forEach(row => {
                 row.addEventListener('click', () => {
@@ -4138,6 +4391,8 @@
             document.getElementById('exp-equipment').value = exp.equipment || '';
             document.getElementById('exp-food').value = exp.food || '';
             document.getElementById('exp-drink').value = exp.drink || '';
+            document.getElementById('exp-budget').value = cityBudgetTarget(id);
+            updatePanelBudgetBar();
             document.getElementById('panel-expense-notes').value = data.expenseNotes || '';
             document.getElementById('panel-receipts').innerHTML = '<p class="pill-empty-note">Loading…</p>';
             renderReceipts(id);
@@ -4199,12 +4454,27 @@
                     food: +document.getElementById('exp-food').value || 0,
                     drink: +document.getElementById('exp-drink').value || 0
                 },
+                budgetTarget: +document.getElementById('exp-budget').value || 0,
                 expenseNotes: document.getElementById('panel-expense-notes').value
             };
             const ok = saveState();
             checkAchievements();
             updateDashboard(); renderTimeline();
             if (showConfirm && ok) showToast('Saved ✓', 'ok');
+        }
+
+        // Live-updates the city panel's budget bar as the user types, before Save is hit.
+        function updatePanelBudgetBar() {
+            const spent = (+document.getElementById('exp-equipment').value || 0)
+                        + (+document.getElementById('exp-food').value || 0)
+                        + (+document.getElementById('exp-drink').value || 0);
+            const target = +document.getElementById('exp-budget').value || 0;
+            renderBudgetBar(
+                document.getElementById('panel-budget-bar-track'),
+                document.getElementById('panel-budget-bar-fill'),
+                document.getElementById('panel-budget-bar-label'),
+                spent, target
+            );
         }
 
         /* Instrument Checklist inside a show's log: one row per instrument in the
@@ -4367,21 +4637,40 @@
                 showToast(`${dataUrls.length} receipt${dataUrls.length > 1 ? 's' : ''} saved ✓`, 'ok');
             } catch (err) { showToast('Could not save receipt(s).', 'warn'); }
         }
+        // Deletions are staged here during the undo grace period so they can still be
+        // rendered as "gone" without actually touching ReceiptStore until it elapses.
+        const pendingReceiptDeletes = {};
+        function receiptDeleteKey(cityId, id) { return `${cityId}::${id}`; }
+        function isReceiptDeletePending(cityId, id) { return receiptDeleteKey(cityId, id) in pendingReceiptDeletes; }
+        function scheduleReceiptDelete(cityId, id, onSettled) {
+            const key = receiptDeleteKey(cityId, id);
+            if (key in pendingReceiptDeletes) return;
+            pendingReceiptDeletes[key] = setTimeout(async () => {
+                delete pendingReceiptDeletes[key];
+                try { await ReceiptStore.del(cityId, id); } catch (e) {}
+            }, UNDO_GRACE_MS);
+            showUndoToast('Receipt removed', () => {
+                clearTimeout(pendingReceiptDeletes[key]);
+                delete pendingReceiptDeletes[key];
+                onSettled();
+            });
+            onSettled();
+        }
         async function renderReceipts(id) {
             const wrap = document.getElementById('panel-receipts');
             if (!wrap) return;
             let list = [];
             try { list = await ReceiptStore.list(id); } catch (e) {}
             if (currentActiveCityId !== id) return; // panel moved on while this was loading
+            list = list.filter(r => !isReceiptDeletePending(id, r.id));
             wrap.innerHTML = list.length ? list.map(r => `
                 <div class="receipt-thumb">
                     <img src="${r.dataUri}" alt="Receipt" onclick="window.open('${r.dataUri.replace(/'/g, "\\'")}', '_blank')">
                     <button type="button" class="receipt-remove" aria-label="Remove receipt" onclick="removeReceipt('${statEsc(id)}','${statEsc(r.id)}')">&times;</button>
                 </div>`).join('') : '<p class="pill-empty-note">No receipts uploaded yet.</p>';
         }
-        async function removeReceipt(cityId, id) {
-            try { await ReceiptStore.del(cityId, id); } catch (e) {}
-            if (currentActiveCityId === cityId) renderReceipts(cityId);
+        function removeReceipt(cityId, id) {
+            scheduleReceiptDelete(cityId, id, () => { if (currentActiveCityId === cityId) renderReceipts(cityId); });
         }
 
         /* ---------------- RECEIPTS REVIEW (all cities, for the More menu) ---------------- */
@@ -4391,10 +4680,10 @@
             document.getElementById('receipts-overlay').classList.add('active');
             let receipts = {};
             try { receipts = await ReceiptStore.all(); } catch (e) {}
-            const cities = tourData.filter(stop => receipts[stop.id] && receipts[stop.id].length);
+            const cities = tourData.filter(stop => (receipts[stop.id] || []).some(r => !isReceiptDeletePending(stop.id, r.id)));
             if (!cities.length) { content.innerHTML = '<p class="empty-note">No receipts uploaded yet. Add receipts from a city panel.</p>'; return; }
             content.innerHTML = cities.map(stop => {
-                const list = receipts[stop.id];
+                const list = receipts[stop.id].filter(r => !isReceiptDeletePending(stop.id, r.id));
                 const thumbs = list.map(r => `
                     <div class="receipt-thumb">
                         <img src="${r.dataUri}" alt="Receipt for ${statEsc(stop.city)}" onclick="window.open('${r.dataUri.replace(/'/g, "\\'")}', '_blank')">
@@ -4407,10 +4696,11 @@
                 </div>`;
             }).join('');
         }
-        async function removeReceiptFromReview(cityId, id) {
-            try { await ReceiptStore.del(cityId, id); } catch (e) {}
-            if (currentActiveCityId === cityId) renderReceipts(cityId);
-            openReceiptsReview();
+        function removeReceiptFromReview(cityId, id) {
+            scheduleReceiptDelete(cityId, id, () => {
+                if (currentActiveCityId === cityId) renderReceipts(cityId);
+                openReceiptsReview();
+            });
         }
 
         /* ---------------- MAINTENANCE LOG ---------------- */
@@ -4671,6 +4961,27 @@
             container.appendChild(toast);
             setTimeout(() => toast.classList.add('show'), 60);
             setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 600); }, 4200);
+        }
+
+        const UNDO_GRACE_MS = 5000;
+        // Shows a toast with an Undo button; onUndo fires if clicked before the grace period elapses.
+        function showUndoToast(message, onUndo) {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = 'toast undo warn';
+            toast.innerHTML = `<span></span><button type="button" class="toast-undo-btn">Undo</button>`;
+            toast.querySelector('span').textContent = message;
+            let settled = false;
+            const dismiss = () => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 600); };
+            toast.querySelector('.toast-undo-btn').onclick = () => {
+                if (settled) return;
+                settled = true;
+                onUndo();
+                dismiss();
+            };
+            container.appendChild(toast);
+            setTimeout(() => toast.classList.add('show'), 60);
+            setTimeout(() => { if (!settled) { settled = true; dismiss(); } }, UNDO_GRACE_MS);
         }
 
         /* ---------------- FINALE ---------------- */
@@ -5070,6 +5381,12 @@
             return `<div class="pdf-field"><span class="k">${pdfEsc(label)}</span><span class="v">${pdfEsc(value)}</span></div>`;
         }
 
+        function pdfReceiptsField(label, receipts) {
+            if (!receipts || !receipts.length) return '';
+            const thumbs = receipts.map(r => `<img class="pdf-receipt-thumb" src="${pdfEsc(r.dataUri)}" alt="Receipt">`).join('');
+            return `<div class="pdf-receipts"><span class="k">${pdfEsc(label)} (${receipts.length})</span><div class="pdf-receipt-grid">${thumbs}</div></div>`;
+        }
+
         function buildPDFReport(receiptsByCity) {
             receiptsByCity = receiptsByCity || {};
             const n = recapNumbers();
@@ -5109,11 +5426,12 @@
                 const equipment = +exp.equipment || 0, food = +exp.food || 0, drink = +exp.drink || 0;
                 const spent = equipment + food + drink;
                 const instrumentEntries = Object.entries(d.instrumentLogs || {}).filter(([, note]) => note && note.trim());
-                const receiptCount = (receiptsByCity[stop.id] || []).length;
+                const receipts = receiptsByCity[stop.id] || [];
+                const receiptCount = receipts.length;
                 const hasData = state.completedCities.includes(stop.id) || d.favorite || spent > 0
                     || d.notes || d.expenseNotes || instrumentEntries.length
                     || (d.socials || []).length || d.hasPhoto || receiptCount;
-                (hasData ? logged : bare).push({ stop, d, exp, spent, instrumentEntries, receiptCount });
+                (hasData ? logged : bare).push({ stop, d, exp, spent, instrumentEntries, receipts, receiptCount });
                 if (spent > 0) expensed.push({ stop, equipment, food, drink, spent });
             });
 
@@ -5121,7 +5439,7 @@
             if (!logged.length) {
                 html += `<p class="pdf-empty">Nothing logged yet — every stop is still ahead on the road.</p>`;
             } else {
-                logged.forEach(({ stop, d, exp, spent, instrumentEntries, receiptCount }) => {
+                logged.forEach(({ stop, d, exp, spent, instrumentEntries, receipts, receiptCount }) => {
                     const played = state.completedCities.includes(stop.id);
                     const instrumentHtml = instrumentEntries.map(([name, note]) => pdfField(name, note)).join('');
                     html += `
@@ -5134,7 +5452,7 @@
                             ${pdfField('Social notes', d.socialNote)}
                             ${spent > 0 ? pdfField('Expenses', `Equipment $${+exp.equipment || 0} · Food $${+exp.food || 0} · Drink $${+exp.drink || 0} — total $${spent}`) : ''}
                             ${pdfField('Expense notes', d.expenseNotes)}
-                            ${receiptCount ? pdfField('Receipts', `${receiptCount} attached (see Export backup)`) : ''}
+                            ${pdfReceiptsField('Receipts', receipts)}
                             ${d.hasPhoto ? pdfField('Photo', 'Saved on device') : ''}
                         </div>`;
                 });
@@ -5193,7 +5511,7 @@
                 html += `</div>`;
             }
 
-            html += `<div class="pdf-foot">Outlander in Concert · Tour Companion — exported from this device. Photos are not embedded; use Export backup to preserve them.</div>`;
+            html += `<div class="pdf-foot">Outlander in Concert · Tour Companion — exported from this device. Memory photos are not embedded; use Export backup to preserve them.</div>`;
             return html;
         }
 
