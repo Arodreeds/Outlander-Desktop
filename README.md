@@ -94,18 +94,25 @@ optional, not required to ship.
 
 ## Test scripts (optional, not part of the shipped app)
 
-`e2e_test.js`, `e2e_packaged_test.js`, and `e2e_update_test.js` drive the app
-end-to-end with Playwright's Electron support (storage round-trips, photo
-files, the Save Location UI, launching the actual packaged `.app`, the
-Settings "Check for Updates" flow). They're not needed to build or run the
-app — only if you want to re-verify things after making changes. `playwright`
-is a real devDependency (kept installed since these run often — `npm install`
-pulls it in), so just run:
+`e2e_test.js`, `e2e_packaged_test.js`, `e2e_update_test.js`, and friends drive
+the app end-to-end with Playwright's Electron support (storage round-trips,
+photo files, the Save Location UI, launching the actual packaged `.app`, the
+Settings "Check for Updates" flow). `e2e_feature_smoke_test.js` is the odd one
+out — instead of storage plumbing, it drives the actual app-level features a
+user touches: search, timeline filters, the city panel (notes/photo/receipts/
+expenses/social/instrument checklist, saved and reopened), marking a show
+complete end-to-end (achievements, dashboard, the Saxbyte walk), favorites,
+gallery, recap, every export format, and an import round trip through a real
+`location.reload()`. None of these are needed to build or run the app — only
+if you want to re-verify things after making changes. `playwright` is a real
+devDependency (kept installed since these run often — `npm install` pulls it
+in), so just run:
 
 ```bash
 node e2e_test.js                   # exercises dev mode (npm start equivalent)
 node e2e_packaged_test.js          # launches the actual built dist/mac/*.app
 node e2e_update_test.js            # exercises the update-checker (hits the real GitHub API)
+node e2e_feature_smoke_test.js     # full feature pass: city panel, exports, achievements, etc.
 ```
 
 Note: `npm install` for `playwright` also downloads ~500MB of browser

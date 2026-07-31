@@ -3316,9 +3316,17 @@
             if (btn) btn.disabled = true;
             cancelWalk();
 
+            // Playback is meant to be watched — always snap the camera to Saxbyte's
+            // start, even if the user had panned away or turned auto-camera off,
+            // same as clicking the recenter button would.
+            state.settings.autoCamera = true;
+            const camBox = document.getElementById('set-camera'); if (camBox) camBox.checked = true;
+            cameraTakenOver = false;
+            saveState();
+
             const startStop = tourData[0];
             document.getElementById('lag-container').setAttribute('transform', `translate(${startStop.x}, ${startStop.y})`);
-            if (state.settings.autoCamera) centerCameraOnLag(startStop);
+            centerCameraOnLag(startStop);
 
             let i = 0;
             const playNextLeg = () => {
@@ -3366,8 +3374,17 @@
         const wrapper = document.getElementById('map-wrapper');
         const clampNum = (v, min, max) => Math.max(min, Math.min(max, v));
 
+        /* mapCont's size only actually changes on window resize, but reading
+           clientWidth/clientHeight forces the browser to flush layout — and this
+           file used to do that read on every drag mousemove and every animation
+           frame of Saxbyte's walk, fighting the very transform write it was about
+           to make. Cache it and only refresh on resize (see the resize listeners
+           below) so the hot paths (drag, walk, zoom) stay pure reads. */
+        let mapContCW = mapCont.clientWidth, mapContCH = mapCont.clientHeight;
+        function refreshMapContSize() { mapContCW = mapCont.clientWidth; mapContCH = mapCont.clientHeight; }
+
         function applyTransform(smooth = false) {
-            const cw = mapCont.clientWidth, ch = mapCont.clientHeight;
+            const cw = mapContCW, ch = mapContCH;
             transX = clampNum(transX, cw - (cw * viewScale), 0);
             transY = clampNum(transY, ch - (ch * viewScale), 0);
             wrapper.style.transition = smooth ? 'transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1)' : 'none';
@@ -3377,7 +3394,7 @@
         /* The SVG uses preserveAspectRatio="xMidYMid meet", so it is letterboxed inside the
            container. These helpers convert SVG user units to unscaled container pixels. */
         function svgFit() {
-            const cw = mapCont.clientWidth, ch = mapCont.clientHeight;
+            const cw = mapContCW, ch = mapContCH;
             const s = Math.min(cw / MAP.W, ch / MAP.H);
             return { s, ox: (cw - MAP.W * s) / 2, oy: (ch - MAP.H * s) / 2, cw, ch };
         }
@@ -3418,8 +3435,8 @@
             saveState();
         }
         function updateZoomLabel() { const el = document.getElementById('zoom-level'); if (el) el.textContent = Math.round(viewScale * 100) + '%'; }
-        function zoomIn() { disableAutoCam(); zoomAt(viewScale * 1.3, mapCont.clientWidth / 2, mapCont.clientHeight / 2, true); }
-        function zoomOut() { disableAutoCam(); zoomAt(viewScale / 1.3, mapCont.clientWidth / 2, mapCont.clientHeight / 2, true); }
+        function zoomIn() { disableAutoCam(); zoomAt(viewScale * 1.3, mapContCW / 2, mapContCH / 2, true); }
+        function zoomOut() { disableAutoCam(); zoomAt(viewScale / 1.3, mapContCW / 2, mapContCH / 2, true); }
         function recenterCamera() {
             state.settings.autoCamera = true;
             const box = document.getElementById('set-camera'); if (box) box.checked = true;
@@ -4153,7 +4170,7 @@
             // Still too long at the smallest size — the ellipsis takes over, so expose the full text
             els.forEach(el => { if (el.scrollWidth > el.clientWidth + 1) el.title = el.textContent; });
         }
-        window.addEventListener('resize', () => { fitAllStats(); applyTransform(false); });
+        window.addEventListener('resize', () => { refreshMapContSize(); fitAllStats(); applyTransform(false); });
 
         /* ---------------- TIMELINE ---------------- */
         function renderTimeline() {

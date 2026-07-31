@@ -1,7 +1,7 @@
 {
   "name": "outlander-tour-companion",
   "productName": "Outlander Tour Companion",
-  "version": "1.2.6",
+  "version": "1.2.7",
   "description": "Offline desktop companion for the Outlander in Concert tour.",
   "main": "main.js",
   "private": true,
@@ -9,7 +9,7 @@
     "start": "electron .",
     "dist": "electron-builder --mac --x64",
     "dist:universal": "electron-builder --mac --universal",
-    "test": "node e2e_test.js && node e2e_migration_test.js && node e2e_corrupted_save_test.js && node e2e_save_folder_test.js && node e2e_storage_failure_test.js && node e2e_update_test.js && node e2e_update_failure_test.js",
+    "test": "node e2e_test.js && node e2e_migration_test.js && node e2e_corrupted_save_test.js && node e2e_save_folder_test.js && node e2e_storage_failure_test.js && node e2e_update_test.js && node e2e_update_failure_test.js && node e2e_feature_smoke_test.js",
     "test:packaged": "node e2e_packaged_test.js"
   },
   "devDependencies": {
