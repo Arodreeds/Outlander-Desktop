@@ -164,6 +164,10 @@ function dataUriToBuffer(dataUri) {
     if (!match) throw new Error('Not a base64 data URI');
     return { mime: match[1], buffer: Buffer.from(match[2], 'base64') };
 }
+function fileToDataUri(file) {
+    const buffer = fs.readFileSync(file);
+    return `data:${mimeForExt(path.extname(file))};base64,${buffer.toString('base64')}`;
+}
 function photosDir() { return path.join(saveFolder, 'photos'); }
 function findPhotoFile(id) {
     const dir = photosDir();
@@ -182,9 +186,7 @@ ipcMain.handle('photo-set', async (event, id, dataUri) => {
 
 ipcMain.handle('photo-get', async (event, id) => {
     const file = findPhotoFile(id);
-    if (!file) return null;
-    const buffer = fs.readFileSync(file);
-    return `data:${mimeForExt(path.extname(file))};base64,${buffer.toString('base64')}`;
+    return file ? fileToDataUri(file) : null;
 });
 
 ipcMain.handle('photo-del', async (event, id) => {
@@ -199,9 +201,7 @@ ipcMain.handle('photo-all', async () => {
     for (const filename of fs.readdirSync(dir)) {
         const full = path.join(dir, filename);
         if (!fs.statSync(full).isFile()) continue;
-        const id = path.parse(filename).name;
-        const buffer = fs.readFileSync(full);
-        out[id] = `data:${mimeForExt(path.extname(filename))};base64,${buffer.toString('base64')}`;
+        out[path.parse(filename).name] = fileToDataUri(full);
     }
     return out;
 });
@@ -229,10 +229,7 @@ ipcMain.handle('receipt-add', async (event, cityId, dataUri) => {
 
 ipcMain.handle('receipt-list', async (event, cityId) => {
     const dir = receiptsDir(cityId);
-    return receiptFiles(cityId).map(f => {
-        const buffer = fs.readFileSync(path.join(dir, f));
-        return { id: path.parse(f).name, dataUri: `data:${mimeForExt(path.extname(f))};base64,${buffer.toString('base64')}` };
-    });
+    return receiptFiles(cityId).map(f => ({ id: path.parse(f).name, dataUri: fileToDataUri(path.join(dir, f)) }));
 });
 
 ipcMain.handle('receipt-del', async (event, cityId, id) => {
@@ -249,10 +246,7 @@ ipcMain.handle('receipt-all', async () => {
     for (const cityId of fs.readdirSync(base)) {
         if (!fs.statSync(path.join(base, cityId)).isDirectory()) continue;
         const dir = receiptsDir(cityId);
-        out[cityId] = receiptFiles(cityId).map(f => {
-            const buffer = fs.readFileSync(path.join(dir, f));
-            return { id: path.parse(f).name, dataUri: `data:${mimeForExt(path.extname(f))};base64,${buffer.toString('base64')}` };
-        });
+        out[cityId] = receiptFiles(cityId).map(f => ({ id: path.parse(f).name, dataUri: fileToDataUri(path.join(dir, f)) }));
     }
     return out;
 });

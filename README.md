@@ -94,20 +94,22 @@ optional, not required to ship.
 
 ## Test scripts (optional, not part of the shipped app)
 
-`e2e_test.js` and `e2e_packaged_test.js` drive the app end-to-end with
-Playwright's Electron support (storage round-trips, photo files, the Save
-Location UI, launching the actual packaged `.app`). They're not needed to
-build or run the app — only if you want to re-verify things after making
-changes. To use them:
+`e2e_test.js`, `e2e_packaged_test.js`, and `e2e_update_test.js` drive the app
+end-to-end with Playwright's Electron support (storage round-trips, photo
+files, the Save Location UI, launching the actual packaged `.app`, the
+Settings "Check for Updates" flow). They're not needed to build or run the
+app — only if you want to re-verify things after making changes. `playwright`
+is a real devDependency (kept installed since these run often — `npm install`
+pulls it in), so just run:
 
 ```bash
-npm install --no-save playwright   # temporary — not a real dependency of the app
 node e2e_test.js                   # exercises dev mode (npm start equivalent)
 node e2e_packaged_test.js          # launches the actual built dist/mac/*.app
-npm uninstall playwright           # remove it again afterward
+node e2e_update_test.js            # exercises the update-checker (hits the real GitHub API)
 ```
 
-Note: by default `npm install playwright` also downloads ~500MB of browser
-binaries (Chromium/Firefox/WebKit) it doesn't actually need for this — only
-the Electron driver is used. Clean that up afterward too if disk space
-matters: `rm -rf ~/Library/Caches/ms-playwright`.
+Note: `npm install` for `playwright` also downloads ~500MB of browser
+binaries (Chromium/Firefox/WebKit) it doesn't actually need — only the
+Electron driver is used. Safe to clean up if disk space matters:
+`rm -rf ~/Library/Caches/ms-playwright` (re-downloaded automatically if a
+`playwright`-dependent script runs again and it's missing).

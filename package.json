@@ -1,7 +1,7 @@
 {
   "name": "outlander-tour-companion",
   "productName": "Outlander Tour Companion",
-  "version": "1.2.4",
+  "version": "1.2.5",
   "description": "Offline desktop companion for the Outlander in Concert tour.",
   "main": "main.js",
   "private": true,
@@ -12,7 +12,8 @@
   },
   "devDependencies": {
     "electron": "^31.0.0",
-    "electron-builder": "^24.13.3"
+    "electron-builder": "^24.13.3",
+    "playwright": "^1.62.1"
   },
   "build": {
     "appId": "com.outlandertour.companion",
