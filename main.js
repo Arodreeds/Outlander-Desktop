@@ -4,6 +4,16 @@ const fs = require('fs');
 const https = require('https');
 
 // ---------------------------------------------------------------------------
+// Test isolation — when OUTLANDER_TEST_ROOT is set (only ever done by the e2e
+// scripts), userData and the default save folder both move inside it. Without
+// this, an unpacked/dev launch falls back to the exact same ~/Documents save
+// folder the packaged app uses, so e2e runs would read and overwrite real
+// tour data. Must run before CONFIG_PATH/DEFAULT_SAVE_FOLDER are computed.
+// ---------------------------------------------------------------------------
+const TEST_ROOT = process.env.OUTLANDER_TEST_ROOT || null;
+if (TEST_ROOT) app.setPath('userData', path.join(TEST_ROOT, 'userData'));
+
+// ---------------------------------------------------------------------------
 // Where the user's data actually lives. This is intentionally separate from
 // Electron's own userData folder (~/Library/Application Support/...): that
 // folder is meant for opaque app internals, not something a user should be
@@ -14,7 +24,9 @@ const https = require('https');
 // save folder itself can move anywhere the user picks.
 // ---------------------------------------------------------------------------
 const CONFIG_PATH = path.join(app.getPath('userData'), 'config.json');
-const DEFAULT_SAVE_FOLDER = path.join(app.getPath('documents'), 'Outlander Tour Companion');
+const DEFAULT_SAVE_FOLDER = TEST_ROOT
+    ? path.join(TEST_ROOT, 'save')
+    : path.join(app.getPath('documents'), 'Outlander Tour Companion');
 
 function readConfig() {
     try { return JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8')); } catch (e) { return {}; }
@@ -303,7 +315,11 @@ ipcMain.handle('choose-save-folder', async (event) => {
 // Settings gets a manual "Check for Updates" button that compares the running
 // version against the latest GitHub release tag and links out to it.
 // ---------------------------------------------------------------------------
-const RELEASES_API_URL = 'https://api.github.com/repos/Arodreeds/Outlander-Desktop/releases/latest';
+// Overridable only inside an OUTLANDER_TEST_ROOT run, so e2e tests can point this at an
+// unreachable address and exercise the real fetchJSON()/check-for-update failure path
+// without ever letting a non-test launch be redirected away from the real GitHub API.
+const RELEASES_API_URL = (TEST_ROOT && process.env.OUTLANDER_TEST_RELEASES_API_URL)
+    || 'https://api.github.com/repos/Arodreeds/Outlander-Desktop/releases/latest';
 const RELEASES_PAGE_URL = 'https://github.com/Arodreeds/Outlander-Desktop/releases/latest';
 
 function fetchJSON(url) {

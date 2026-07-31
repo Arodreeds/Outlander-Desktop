@@ -2439,7 +2439,13 @@
 
         function saveState() {
             try {
-                appStorage.setItem('outlanderTourState', JSON.stringify(state));
+                // electronStorage.setItem reports failure (e.g. a read-only or full disk) by
+                // returning false rather than throwing, so that has to be checked explicitly —
+                // localStorage.setItem (the plain-browser fallback) throws instead, which the
+                // catch below still handles.
+                if (appStorage.setItem('outlanderTourState', JSON.stringify(state)) === false) {
+                    throw new Error('appStorage.setItem failed');
+                }
                 refreshStorageLine();   // cheap; the full photo scan runs only when Settings opens
                 return true;
             } catch (e) {
