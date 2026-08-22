@@ -13,8 +13,8 @@
     "test:packaged": "node e2e_packaged_test.js"
   },
   "devDependencies": {
-    "electron": "^31.0.0",
-    "electron-builder": "^24.13.3",
+    "electron": "^43.4.1",
+    "electron-builder": "^26.15.3",
     "playwright": "^1.62.1"
   },
   "build": {
