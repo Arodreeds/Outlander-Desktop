@@ -3526,6 +3526,9 @@
                 case 'ArrowDown': e.preventDefault(); panMapByKey(0, -MAP_PAN_STEP); break;
                 case 'ArrowLeft': e.preventDefault(); panMapByKey(MAP_PAN_STEP, 0); break;
                 case 'ArrowRight': e.preventDefault(); panMapByKey(-MAP_PAN_STEP, 0); break;
+                case 'g': case 'G': e.preventDefault(); openGallery(); break;
+                case 'r': case 'R': e.preventDefault(); openReceiptsReview(); break;
+                case 'f': case 'F': e.preventDefault(); openFavorites(); break;
             }
         });
 
@@ -4941,9 +4944,15 @@
             list = list.filter(r => !isReceiptDeletePending(id, r.id));
             wrap.innerHTML = list.length ? list.map(r => `
                 <div class="receipt-thumb">
-                    <img src="${r.dataUri}" alt="Receipt" onclick="window.open('${r.dataUri.replace(/'/g, "\\'")}', '_blank')">
+                    <img src="${statEsc(r.dataUri)}" alt="Receipt" data-rid="${statEsc(r.id)}">
                     <button type="button" class="receipt-remove" aria-label="Remove receipt" onclick="removeReceipt('${statEsc(id)}','${statEsc(r.id)}')">&times;</button>
                 </div>`).join('') : '<p class="pill-empty-note">No receipts uploaded yet.</p>';
+            // dataUri opened via a real click handler (not string-interpolated into onclick) so a
+            // crafted/imported backup file can't inject markup or script through it — see statEsc().
+            wrap.querySelectorAll('img[data-rid]').forEach(img => {
+                const r = list.find(x => x.id === img.dataset.rid);
+                if (r) img.addEventListener('click', () => window.open(r.dataUri, '_blank'));
+            });
         }
         function removeReceipt(cityId, id) {
             scheduleReceiptDelete(cityId, id, () => { if (currentActiveCityId === cityId) renderReceipts(cityId); });
@@ -4962,7 +4971,7 @@
                 const list = receipts[stop.id].filter(r => !isReceiptDeletePending(stop.id, r.id));
                 const thumbs = list.map(r => `
                     <div class="receipt-thumb">
-                        <img src="${r.dataUri}" alt="Receipt for ${statEsc(stop.city)}" onclick="window.open('${r.dataUri.replace(/'/g, "\\'")}', '_blank')">
+                        <img src="${statEsc(r.dataUri)}" alt="Receipt for ${statEsc(stop.city)}" data-city="${statEsc(stop.id)}" data-rid="${statEsc(r.id)}">
                         <button type="button" class="receipt-remove" aria-label="Remove receipt" onclick="removeReceiptFromReview('${statEsc(stop.id)}','${statEsc(r.id)}')">&times;</button>
                     </div>`).join('');
                 return `<div class="log-entry">
@@ -4971,6 +4980,12 @@
                     <div class="receipt-grid" style="margin-top:10px">${thumbs}</div>
                 </div>`;
             }).join('');
+            // See renderReceipts() above — real click handlers, not interpolated onclick strings.
+            content.querySelectorAll('img[data-rid]').forEach(img => {
+                const list = receipts[img.dataset.city] || [];
+                const r = list.find(x => x.id === img.dataset.rid);
+                if (r) img.addEventListener('click', () => window.open(r.dataUri, '_blank'));
+            });
         }
         function removeReceiptFromReview(cityId, id) {
             scheduleReceiptDelete(cityId, id, () => {
@@ -5053,7 +5068,7 @@
             tourData.forEach(stop => {
                 if (!photos[stop.id]) return;
                 const card = document.createElement('div'); card.className = 'gallery-card'; card.style.cursor = 'pointer';
-                card.innerHTML = `<img src="${photos[stop.id]}" alt="${stop.city}"><div class="cap">${stop.city.split(',')[0]}<br><span style="color:var(--text-muted);font-size:0.72rem">${stop.date}</span></div>`;
+                card.innerHTML = `<img src="${statEsc(photos[stop.id])}" alt="${stop.city}"><div class="cap">${stop.city.split(',')[0]}<br><span style="color:var(--text-muted);font-size:0.72rem">${stop.date}</span></div>`;
                 card.onclick = () => { closePanel('gallery-overlay'); openCityPanel(stop.id); };
                 grid.appendChild(card);
             });

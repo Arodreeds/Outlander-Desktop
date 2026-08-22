@@ -187,6 +187,48 @@ function step(name) { currentStep = name; console.log(`-- ${name}`); }
     t.ok(reviewPanel, 'Receipts review panel (More menu) lists the city with a receipt');
     await win.evaluate(() => closePanel('receipts-overlay'));
 
+    // ---------------- RENDER HARDENING (a hostile dataUri — e.g. from a hand-edited or
+    // corrupted imported backup — must never become live markup in the receipts/gallery
+    // panels; see the statEsc() fix on renderReceipts/openReceiptsReview/openGallery).
+    // Can't exercise this via ReceiptStore/PhotoStore directly: window.electronReceipts /
+    // window.electronPhotos are contextBridge objects, and Electron deep-freezes those before
+    // exposing them (confirmed: Object.isFrozen is true), so a real dataUri can never actually
+    // carry HTML metacharacters by the time it round-trips through main.js's file storage
+    // (mime is re-derived from a 3-value whitelist, bytes are re-encoded as clean base64) —
+    // and the store itself can't be monkey-patched to simulate a dirty value reaching render.
+    // So this checks the actual defense directly: the escaping primitive, and that the three
+    // fixed render functions still call it on the untrusted field, rather than the injection
+    // scenario end-to-end (which the store's own sanitization already makes unreachable). ----------------
+    step('RENDER HARDENING (statEsc() neutralizes a hostile dataUri, and is wired into every render site)');
+    const hardening = await win.evaluate(() => {
+        const evil = '"><img src=x onerror="window.__xssFired=true">';
+        const escaped = statEsc(evil);
+        return {
+            neutralized: !escaped.includes('"') && !escaped.includes('<') && !escaped.includes('>'),
+            properEntities: escaped.includes('&quot;') && escaped.includes('&lt;') && escaped.includes('&gt;'),
+            receiptsPanelEscaped: renderReceipts.toString().includes('statEsc(r.dataUri)'),
+            receiptsReviewEscaped: openReceiptsReview.toString().includes('statEsc(r.dataUri)'),
+            galleryEscaped: openGallery.toString().includes('statEsc(photos[stop.id])')
+        };
+    });
+    t.ok(hardening.neutralized, 'statEsc() strips the quote/angle-bracket characters a hostile dataUri would need to break out of an <img> attribute');
+    t.ok(hardening.properEntities, 'statEsc() output uses proper HTML entities');
+    t.ok(hardening.receiptsPanelEscaped, 'renderReceipts() escapes dataUri before writing it into innerHTML');
+    t.ok(hardening.receiptsReviewEscaped, 'openReceiptsReview() escapes dataUri before writing it into innerHTML');
+    t.ok(hardening.galleryEscaped, 'openGallery() escapes the photo dataUri before writing it into innerHTML');
+    // The old code opened the full-size receipt via an onclick="window.open('${dataUri}')"
+    // string built from unescaped data; it's now a real click listener matched by id instead —
+    // confirm that still opens the correct (real, legitimately-uploaded) receipt.
+    const receiptClickWiring = await win.evaluate(async () => {
+        let opened = null;
+        const origOpen = window.open;
+        window.open = (uri) => { opened = uri; };
+        document.querySelector('#panel-receipts .receipt-thumb img').click();
+        window.open = origOpen;
+        return opened;
+    });
+    t.eq(receiptClickWiring, tinyJpeg, 'clicking a receipt thumbnail still opens its real dataUri');
+
     // ---------------- MARK COMPLETE: achievements, dashboard, walk, backup nudge ----------------
     step('MARK COMPLETE: achievements, dashboard, walk, backup nudge');
     await win.evaluate((id) => openCityPanel(id), cityId);
@@ -273,6 +315,45 @@ function step(name) { currentStep = name; console.log(`-- ${name}`); }
         return hasPhoto;
     });
     t.ok(gallery, 'Gallery shows the photo uploaded earlier');
+
+    // ---------------- KEYBOARD SHORTCUTS (g/r/f open Gallery/Receipts/Favorites) ----------------
+    step('KEYBOARD SHORTCUTS (g/r/f)');
+    const shortcuts = await win.evaluate(async () => {
+        function pressKey(key, target) {
+            (target || document).dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+        }
+        const result = {};
+        pressKey('g');
+        await new Promise(r => setTimeout(r, 20));
+        result.galleryOpened = document.getElementById('gallery-overlay').classList.contains('active');
+        closePanel('gallery-overlay');
+
+        pressKey('r');
+        await new Promise(r => setTimeout(r, 20));
+        result.receiptsOpened = document.getElementById('receipts-overlay').classList.contains('active');
+        closePanel('receipts-overlay');
+
+        pressKey('f');
+        await new Promise(r => setTimeout(r, 20));
+        result.favoritesOpened = document.getElementById('favorites-overlay').classList.contains('active');
+        closePanel('favorites-overlay');
+
+        // Typing 'g'/'r'/'f' into a text field must not trigger the shortcut — dispatched on
+        // the focused input itself so isTypingTarget(e.target) actually sees it, matching how
+        // a real keypress while typing would bubble from the input to the document listener.
+        const input = document.getElementById('search-input');
+        input.focus();
+        pressKey('g', input);
+        await new Promise(r => setTimeout(r, 20));
+        result.noHijackWhileTyping = !document.getElementById('gallery-overlay').classList.contains('active');
+        input.blur();
+
+        return result;
+    });
+    t.ok(shortcuts.galleryOpened, "'g' opens the Gallery");
+    t.ok(shortcuts.receiptsOpened, "'r' opens the Receipts review");
+    t.ok(shortcuts.favoritesOpened, "'f' opens Favorites");
+    t.ok(shortcuts.noHijackWhileTyping, "'g'/'r'/'f' shortcuts don't fire while typing in the search field");
 
     // ---------------- RECAP ----------------
     step('RECAP');
