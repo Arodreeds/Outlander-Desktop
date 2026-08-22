@@ -73,7 +73,7 @@ function step(name) { currentStep = name; console.log(`-- ${name}`); }
 
     await win.evaluate(() => { dismissOnboarding(); window.confirm = () => true; });
 
-    const basics = await win.evaluate(() => ({ stopCount: tourData.length, firstId: tourData[0].id, secondId: tourData[1].id, firstState: tourData[0].stateId }));
+    const basics = await win.evaluate(() => ({ stopCount: tourData.length, firstId: tourData[0].id, secondId: tourData[1].id, firstState: tourData[0].stateId, firstMiles: tourData[0].milesToNext }));
     t.ok(basics.stopCount > 1, `tourData populated (${basics.stopCount} stops)`);
 
     // ---------------- SEARCH ----------------
@@ -208,13 +208,31 @@ function step(name) { currentStep = name; console.log(`-- ${name}`); }
             properEntities: escaped.includes('&quot;') && escaped.includes('&lt;') && escaped.includes('&gt;'),
             receiptsPanelEscaped: renderReceipts.toString().includes('statEsc(r.dataUri)'),
             receiptsReviewEscaped: openReceiptsReview.toString().includes('statEsc(r.dataUri)'),
-            galleryEscaped: openGallery.toString().includes('statEsc(photos[stop.id])')
+            galleryEscaped: openGallery.toString().includes('statEsc(photos[stop.id])'),
+            // These 7 sites were flagged during this session's health review as unescaped
+            // interpolations of stop.city/venue/date/time — "safe" only because tourData used
+            // to be 100% hardcoded. "Add a Show" ends that assumption, so every one of them
+            // was hardened alongside it; guard against a future edit silently dropping statEsc().
+            statePanelEscaped: openStatePanelFor.toString().includes('statEsc(stop.city.split') && openStatePanelFor.toString().includes('statEsc(stop.venue)'),
+            timelineEscaped: renderTimeline.toString().includes('statEsc(stop.date)') && renderTimeline.toString().includes('statEsc(stop.city.split') && renderTimeline.toString().includes('statEsc(showtime)'),
+            venueMapPopupEscaped: showVenueMap.toString().includes('statEsc(stop.venue)') && showVenueMap.toString().includes('statEsc(stop.city)'),
+            receiptsReviewCityEscaped: openReceiptsReview.toString().includes('statEsc(stop.city)') && openReceiptsReview.toString().includes('statEsc(stop.date)') && openReceiptsReview.toString().includes('statEsc(stop.venue)'),
+            maintenanceLogEscaped: openMaintenanceLog.toString().includes('statEsc(stop.city)') && openMaintenanceLog.toString().includes('statEsc(stop.venue)') && openMaintenanceLog.toString().includes('statEsc(stop.date)'),
+            favoritesEscaped: openFavorites.toString().includes('statEsc(stop.city)') && openFavorites.toString().includes('statEsc(stop.date)') && openFavorites.toString().includes('statEsc(stop.venue)'),
+            galleryCityDateEscaped: openGallery.toString().includes('statEsc(stop.city)') && openGallery.toString().includes('statEsc(stop.city.split') && openGallery.toString().includes('statEsc(stop.date)')
         };
     });
     t.ok(hardening.neutralized, 'statEsc() strips the quote/angle-bracket characters a hostile dataUri would need to break out of an <img> attribute');
     t.ok(hardening.properEntities, 'statEsc() output uses proper HTML entities');
     t.ok(hardening.receiptsPanelEscaped, 'renderReceipts() escapes dataUri before writing it into innerHTML');
     t.ok(hardening.receiptsReviewEscaped, 'openReceiptsReview() escapes dataUri before writing it into innerHTML');
+    t.ok(hardening.statePanelEscaped, 'openStatePanelFor() escapes city/venue before writing them into innerHTML');
+    t.ok(hardening.timelineEscaped, 'renderTimeline() escapes date/city/showtime before writing them into innerHTML');
+    t.ok(hardening.venueMapPopupEscaped, "showVenueMap() escapes venue/city before handing them to Leaflet's bindPopup");
+    t.ok(hardening.receiptsReviewCityEscaped, 'openReceiptsReview() escapes city/date/venue before writing them into innerHTML');
+    t.ok(hardening.maintenanceLogEscaped, 'openMaintenanceLog() escapes city/venue/date before writing them into innerHTML');
+    t.ok(hardening.favoritesEscaped, 'openFavorites() escapes city/date/venue before writing them into innerHTML');
+    t.ok(hardening.galleryCityDateEscaped, 'openGallery() escapes city/date before writing them into innerHTML');
     t.ok(hardening.galleryEscaped, 'openGallery() escapes the photo dataUri before writing it into innerHTML');
     // The old code opened the full-size receipt via an onclick="window.open('${dataUri}')"
     // string built from unescaped data; it's now a real click listener matched by id instead —
@@ -355,6 +373,176 @@ function step(name) { currentStep = name; console.log(`-- ${name}`); }
     t.ok(shortcuts.favoritesOpened, "'f' opens Favorites");
     t.ok(shortcuts.noHijackWhileTyping, "'g'/'r'/'f' shortcuts don't fire while typing in the search field");
 
+    // ---------------- ADD A SHOW: click-to-place mechanics ----------------
+    step('ADD A SHOW: click-to-place mechanics');
+    const placement = await win.evaluate(async () => {
+        openAddShow();
+        const overlayOpenBefore = document.getElementById('add-show-overlay').classList.contains('active');
+        document.getElementById('as-city').value = 'Testville';
+        document.getElementById('as-state').value = 'TN';
+        document.getElementById('as-venue').value = 'Test Hall';
+        document.getElementById('as-date').value = '2026-10-05';
+        updateAddShowSaveEnabled();
+        const disabledBeforePlacement = document.getElementById('as-save-btn').disabled;
+
+        startShowPlacement();
+        const overlayClosedDuringPlacement = !document.getElementById('add-show-overlay').classList.contains('active');
+        const hintShown = document.getElementById('place-hint').style.display !== 'none';
+        const cursorSet = document.getElementById('map-container').style.cursor === 'crosshair';
+
+        const r = document.getElementById('map-container').getBoundingClientRect();
+        const clickX = r.left + r.width / 2, clickY = r.top + r.height / 2;
+        document.getElementById('map-container').dispatchEvent(new MouseEvent('click', { clientX: clickX, clientY: clickY, bubbles: true }));
+
+        return {
+            overlayOpenBefore, disabledBeforePlacement, overlayClosedDuringPlacement, hintShown, cursorSet,
+            hintHiddenAfterClick: document.getElementById('place-hint').style.display === 'none',
+            overlayReopened: document.getElementById('add-show-overlay').classList.contains('active'),
+            placementStatus: document.getElementById('as-placement-status').textContent,
+            saveEnabledAfterClick: !document.getElementById('as-save-btn').disabled,
+            draftX: addShowDraft.x, draftY: addShowDraft.y
+        };
+    });
+    t.ok(placement.overlayOpenBefore, 'openAddShow() opens the panel');
+    t.ok(placement.disabledBeforePlacement, 'Save stays disabled until the show is placed on the map, even with every other field filled');
+    t.ok(placement.overlayClosedDuringPlacement, 'starting placement closes the form so the real map underneath is clickable');
+    t.ok(placement.hintShown && placement.cursorSet, 'placement mode shows the hint banner and a crosshair cursor');
+    t.ok(placement.hintHiddenAfterClick && placement.overlayReopened, 'a map click ends placement mode and reopens the form');
+    t.ok(placement.placementStatus.includes('Placed'), 'placement status reflects the click');
+    t.ok(placement.saveEnabledAfterClick, 'Save enables once every field is filled and the show is placed');
+    t.ok(placement.draftX >= 0 && placement.draftX <= 1025 && placement.draftY >= 0 && placement.draftY <= 620, `clicked point converts to in-bounds map coordinates (${placement.draftX}, ${placement.draftY})`);
+    await win.evaluate(() => cancelAddShow());   // clear the draft so the next test starts clean
+
+    // ---------------- ADD A SHOW: sorted insertion + driving-distance mileage ----------------
+    step('ADD A SHOW: sorted insertion + driving-distance mileage');
+    const addResult = await win.evaluate(async () => {
+        // Stub the two network calls so the test is deterministic and offline-safe —
+        // both are plain script functions (not contextBridge objects), so this works;
+        // see the RENDER HARDENING section above for why contextBridge objects can't be.
+        window.nominatimLookup = async () => [{ lat: '36.1627', lon: '-86.7816' }];
+        window.drivingMiles = async () => 42;
+
+        const before = tourData[0].id;
+        const secondId = tourData[1].id;
+        const midpoint = new Date((parseShowDate(tourData[0].date).getTime() + parseShowDate(tourData[1].date).getTime()) / 2);
+        const isoMid = `${midpoint.getFullYear()}-${String(midpoint.getMonth() + 1).padStart(2, '0')}-${String(midpoint.getDate()).padStart(2, '0')}`;
+
+        openAddShow();
+        document.getElementById('as-city').value = 'Testville';
+        document.getElementById('as-state').value = 'TN';
+        document.getElementById('as-venue').value = 'Test Hall';
+        document.getElementById('as-date').value = isoMid;
+        document.getElementById('as-time').value = '7:00 PM';
+        addShowDraft.x = 500; addShowDraft.y = 300;   // covered by the click-to-place test above
+        // Fields were set via .value= (no real keystroke/change events), so the Save-enabled
+        // check that click-to-place mechanics already covers must be re-run by hand here.
+        updateAddShowSaveEnabled();
+
+        await saveAddShow();
+        return { predecessorId: before, successorId: secondId, isoMid };
+    });
+
+    let loadPromise = win.waitForEvent('load', { timeout: 15000 });
+    await loadPromise;
+    await new Promise(r => setTimeout(r, 300));
+    await win.evaluate(() => { dismissOnboarding(); window.confirm = () => true; });
+
+    const afterAdd = await win.evaluate(({ predecessorId, successorId }) => {
+        const idx = tourData.findIndex(s => s.id === predecessorId);
+        const added = tourData[idx + 1];
+        return {
+            stopCount: tourData.length,
+            insertedBetween: !!added && !!tourData[idx + 2] && tourData[idx + 2].id === successorId,
+            addedCustomFlag: added && added.custom === true,
+            addedCity: added && added.city,
+            addedMiles: added && added.milesToNext,
+            predecessorMiles: tourData[idx].milesToNext,
+            customShowsCount: state.customShows.length,
+            overrideStored: state.mileageOverrides[predecessorId]
+        };
+    }, addResult);
+    t.eq(afterAdd.stopCount, basics.stopCount + 1, 'the added show increases tourData length by one');
+    t.ok(afterAdd.addedCustomFlag, 'the inserted stop is flagged custom: true');
+    t.ok(afterAdd.insertedBetween, 'the new show is inserted in date order, directly between its two neighbors');
+    t.eq(afterAdd.addedCity, 'Testville, TN', 'the new show carries the entered city and state');
+    t.eq(afterAdd.addedMiles, 42, "the new show's own leg uses the stubbed driving distance");
+    t.eq(afterAdd.predecessorMiles, 42, "the predecessor's stale mileage is overridden to the new (stubbed) driving distance");
+    t.eq(afterAdd.customShowsCount, 1, 'the show is persisted in state.customShows');
+    t.eq(afterAdd.overrideStored, 42, "the predecessor's override is persisted in state.mileageOverrides");
+
+    // ---------------- ADD A SHOW: city-panel controls only appear on custom shows ----------------
+    step('ADD A SHOW: city-panel controls only appear on custom shows');
+    const customId = await win.evaluate((predecessorId) => tourData[tourData.findIndex(s => s.id === predecessorId) + 1].id, addResult.predecessorId);
+    const panelToggle = await win.evaluate(async ({ customId, baselineId }) => {
+        await openCityPanel(customId);
+        const shownForCustom = document.getElementById('panel-custom-controls').style.display === 'flex';
+        closeCityPanel();
+        await openCityPanel(baselineId);
+        const hiddenForBaseline = document.getElementById('panel-custom-controls').style.display === 'none';
+        closeCityPanel();
+        return { shownForCustom, hiddenForBaseline };
+    }, { customId, baselineId: addResult.successorId });
+    t.ok(panelToggle.shownForCustom, 'Edit/Remove controls appear in the city panel for a custom show');
+    t.ok(panelToggle.hiddenForBaseline, 'Edit/Remove controls stay hidden for a baked-in show');
+
+    // ---------------- EDIT A SHOW: same id keeps notes attached, fields update ----------------
+    step('EDIT A SHOW: same id keeps notes attached, fields update');
+    const editResult = await win.evaluate(async (id) => {
+        state.cityDetails[id] = { notes: 'Pre-edit note ✓' };
+        saveState();
+        openEditShow(id);
+        const prefilled = {
+            city: document.getElementById('as-city').value,
+            state: document.getElementById('as-state').value,
+            venue: document.getElementById('as-venue').value,
+            placed: document.getElementById('as-placement-status').textContent.includes('Placed')
+        };
+        document.getElementById('as-venue').value = 'Edited Hall';
+        await saveAddShow();
+        return { prefilled };
+    }, customId);
+    loadPromise = win.waitForEvent('load', { timeout: 15000 });
+    await loadPromise;
+    await new Promise(r => setTimeout(r, 300));
+    await win.evaluate(() => { dismissOnboarding(); window.confirm = () => true; });
+    t.eq(editResult.prefilled.city, 'Testville', 'openEditShow() prefills the city field from the existing stop');
+    t.eq(editResult.prefilled.state, 'TN', 'openEditShow() prefills the state field');
+    t.eq(editResult.prefilled.venue, 'Test Hall', 'openEditShow() prefills the venue field');
+    t.ok(editResult.prefilled.placed, 'openEditShow() carries over the existing map placement');
+    const afterEdit = await win.evaluate((id) => {
+        const stop = tourData.find(s => s.id === id);
+        return { venue: stop && stop.venue, id: stop && stop.id, notes: (state.cityDetails[id] || {}).notes, count: tourData.length };
+    }, customId);
+    t.eq(afterEdit.venue, 'Edited Hall', 'editing a show updates its venue');
+    t.eq(afterEdit.id, customId, 'editing a show keeps the same id (so notes/photos/receipts stay attached)');
+    t.eq(afterEdit.notes, 'Pre-edit note ✓', 'notes logged against a custom show survive editing it');
+    t.eq(afterEdit.count, basics.stopCount + 1, 'editing does not add or drop a stop');
+
+    // ---------------- REMOVE A SHOW: cleans up fully, reverts predecessor mileage ----------------
+    step('REMOVE A SHOW: cleans up fully, reverts predecessor mileage');
+    const removeResult = await win.evaluate(async ({ id, predecessorId }) => {
+        await removeCustomShow(id);
+        return true;
+    }, { id: customId, predecessorId: addResult.predecessorId });
+    loadPromise = win.waitForEvent('load', { timeout: 15000 });
+    await loadPromise;
+    await new Promise(r => setTimeout(r, 300));
+    await win.evaluate(() => { dismissOnboarding(); window.confirm = () => true; });
+    const afterRemove = await win.evaluate(({ id, predecessorId, originalMiles }) => ({
+        stopCount: tourData.length,
+        stillPresent: tourData.some(s => s.id === id),
+        customShowsCount: state.customShows.length,
+        cityDetailsGone: !(id in state.cityDetails),
+        overrideGone: !(predecessorId in state.mileageOverrides),
+        predecessorMilesReverted: tourData.find(s => s.id === predecessorId).milesToNext === originalMiles
+    }), { id: customId, predecessorId: addResult.predecessorId, originalMiles: basics.firstMiles });
+    t.eq(afterRemove.stopCount, basics.stopCount, 'removing the show brings tourData back to its original length');
+    t.ok(!afterRemove.stillPresent, 'the removed show no longer appears in tourData');
+    t.eq(afterRemove.customShowsCount, 0, 'the show is removed from state.customShows');
+    t.ok(afterRemove.cityDetailsGone, 'notes logged against the removed show are cleaned up');
+    t.ok(afterRemove.overrideGone, "the predecessor's mileage override is cleared on removal");
+    t.ok(afterRemove.predecessorMilesReverted, "the predecessor's mileage reverts to its original baked-in value");
+
     // ---------------- RECAP ----------------
     step('RECAP');
     const recap = await win.evaluate(() => {
@@ -452,7 +640,7 @@ function step(name) { currentStep = name; console.log(`-- ${name}`); }
     // before it resolves. Arm Playwright's own page-level 'load' wait first
     // (survives the context teardown because it's driven from the Node side,
     // not from inside the page), then fire the reload as fire-and-forget.
-    let loadPromise = win.waitForEvent('load', { timeout: 15000 });
+    loadPromise = win.waitForEvent('load', { timeout: 15000 });
     await win.evaluate(({ json, id }) => {
         const modified = JSON.parse(json);
         modified.state.cityDetails[id] = { ...(modified.state.cityDetails[id] || {}), notes: 'Imported note ✓' };

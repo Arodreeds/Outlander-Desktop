@@ -683,7 +683,7 @@
 
         .form-group { margin-bottom: 18px; }
         .form-group label { display: block; margin-bottom: 8px; color: var(--parchment-dim); font-size: 0.9rem; font-weight: 600; letter-spacing: 0.3px; }
-        .form-group input[type="text"], .form-group input[type="number"], .form-group textarea {
+        .form-group input[type="text"], .form-group input[type="number"], .form-group input[type="date"], .form-group textarea {
             width: 100%; padding: 11px 12px; background: rgb(var(--surface-rgb)); border: 1px solid var(--slate-light);
             border-radius: var(--radius); color: var(--text-main); font-size: 0.95rem; font-family: var(--font-body);
             transition: border-color 0.3s;
@@ -839,6 +839,7 @@
         .btn:hover { transform: translateY(-2px); box-shadow: 0 6px 12px rgba(0,0,0,0.35); background: var(--gold-glow); }
         .btn-complete { background: var(--moss); color: #fff; }
         .btn-complete:hover { background: var(--moss-glow); color: #0f1512; }
+        .btn:disabled, .btn:disabled:hover { background: var(--slate-light); color: var(--text-muted); cursor: not-allowed; opacity: 0.6; }
         .btn-ghost { background: var(--slate-light); color: var(--parchment); }
         .btn-ghost:hover { background: var(--slate-light); filter: brightness(1.25); }
 
@@ -927,6 +928,14 @@
             box-shadow: 0 4px 12px rgba(0,0,0,0.45);
         }
         .toast.achv .achv-ico { flex: 0 0 auto; opacity: 0.9; }
+
+        /* Placement-mode hint banner (Add/Edit a Show → "Place on Map") */
+        .place-hint {
+            position: fixed; top: 18px; left: 50%; transform: translateX(-50%);
+            background: #1a2127; color: var(--gold-glow); padding: 10px 14px 10px 18px; border-radius: var(--radius);
+            font-weight: 600; box-shadow: 0 10px 25px rgba(0,0,0,0.5); border: 1px solid var(--gold);
+            display: flex; align-items: center; gap: 12px; z-index: 1000; font-size: 0.92rem;
+        }
 
         /* Celebration */
         #celebration-banner {
@@ -1430,6 +1439,7 @@
                     <button role="menuitem" onclick="openRecap();closeMore()">Tour Recap</button>
                     <button role="menuitem" onclick="openAchievements();closeMore()">Achievements</button>
                     <hr>
+                    <button role="menuitem" onclick="openAddShow();closeMore()">Add a Show…</button>
                     <button role="menuitem" onclick="document.getElementById('export-overlay').classList.add('active');closeMore()">Export</button>
                     <button role="menuitem" onclick="document.getElementById('importFile').click();closeMore()">Import backup</button>
                     <button role="menuitem" onclick="toggleSettings();closeMore()">Settings</button>
@@ -1666,6 +1676,11 @@
             </div>
             <div class="panel-rule"></div>
 
+            <div class="cic-actions" id="panel-custom-controls" style="display:none; margin-bottom:16px;">
+                <button type="button" class="cic-btn" onclick="openEditShow(currentActiveCityId)">Edit Show Details</button>
+                <button type="button" class="cic-btn" onclick="removeCustomShow(currentActiveCityId)">Remove This Show</button>
+            </div>
+
             <div class="city-info-card" id="city-info-card">
                 <div class="cic-venue-row">
                     <span id="panel-venue"></span>
@@ -1822,6 +1837,27 @@
             <div class="panel-header"><h2>Memory Gallery</h2><button class="close-btn" aria-label="Close" onclick="closePanel('gallery-overlay')">×</button></div>
             <div class="panel-rule"></div>
             <div id="gallery-content"></div>
+        </div>
+    </div>
+
+    <!-- Add / Edit a Show -->
+    <div class="panel-overlay" id="add-show-overlay" data-close-on-backdrop="">
+        <div class="side-panel" role="dialog" aria-modal="true" aria-label="Add a Show">
+            <div class="panel-header"><h2 id="as-title">Add a Show</h2><button class="close-btn" aria-label="Close" onclick="cancelAddShow()">×</button></div>
+            <div class="panel-rule"></div>
+            <div class="form-group"><label for="as-city">City</label><input type="text" id="as-city" placeholder="e.g. Nashville" oninput="updateAddShowSaveEnabled()"></div>
+            <div class="form-group"><label for="as-state">State</label><select id="as-state" class="setting-select" onchange="updateAddShowSaveEnabled()"><option value="">Choose a state…</option></select></div>
+            <div class="form-group"><label for="as-venue">Venue</label><input type="text" id="as-venue" placeholder="e.g. Ryman Auditorium" oninput="updateAddShowSaveEnabled()"></div>
+            <div class="form-group"><label for="as-date">Date</label><input type="date" id="as-date" onchange="updateAddShowSaveEnabled()"></div>
+            <div class="form-group"><label for="as-time">Showtime</label><input type="text" id="as-time" placeholder="e.g. 7:30 PM"></div>
+            <div class="form-group"><label for="as-tz">Timezone</label><select id="as-tz" class="setting-select"></select></div>
+            <div class="form-group">
+                <label>Map Placement</label>
+                <p id="as-placement-status" class="pill-empty-note" style="margin-bottom:10px">Not yet placed on the map.</p>
+                <button type="button" class="btn btn-ghost" style="margin-top:0" onclick="startShowPlacement()">Place on Map</button>
+            </div>
+            <button class="btn btn-complete" id="as-save-btn" onclick="saveAddShow()" disabled>Save Show</button>
+            <button class="btn btn-ghost" onclick="cancelAddShow()">Cancel</button>
         </div>
     </div>
 
@@ -2015,6 +2051,12 @@
 
     <div class="toast-container" id="toast-container"></div>
 
+    <!-- Shown only while "Place on Map" is active (Add/Edit a Show) -->
+    <div id="place-hint" class="place-hint" style="display:none">
+        <span id="place-hint-text">Click the map to place this show</span>
+        <button type="button" class="btn btn-ghost" style="margin-top:0" onclick="cancelShowPlacement()">Cancel</button>
+    </div>
+
     <!-- Built on demand by exportPDF(); hidden on screen, printed on paper. -->
     <div id="pdf-report" aria-hidden="true"></div>
     <canvas id="confetti"></canvas>
@@ -2094,11 +2136,16 @@
             { id: 'sarasota', time: '7:00 PM', city: 'Sarasota, FL', stateId: 'FL', venue: 'Van Wezel Performing Arts Hall', date: 'Dec 12, 2026', x: 839, y: 558.7, offset: [-7, 8], anchor: 'end', tz: 'America/New_York', lat: 27.343, lon: -82.547, milesToNext: 0 }
         ];
 
-        let state = { completedCities: [], cityDetails: {}, dragonflyFound: false, profile: { name: '', instruments: [] }, settings: { sounds: true, volume: 70, interactSound: 'click', autoCamera: true, sequential: true, palette: 'night', pace: 'standard', mapStyle: 'antique', travelLines: true } };
+        // A pristine snapshot of the baked-in stops, captured once before any user-added
+        // shows exist. mergeCustomShows() rebuilds tourData from this + state.customShows
+        // on every load, so it's always safe to fully recompute rather than track deltas.
+        const BASE_TOUR_DATA = tourData.slice();
+
+        let state = { completedCities: [], cityDetails: {}, customShows: [], mileageOverrides: {}, dragonflyFound: false, profile: { name: '', instruments: [] }, settings: { sounds: true, volume: 70, interactSound: 'click', autoCamera: true, sequential: true, palette: 'night', pace: 'standard', mapStyle: 'antique', travelLines: true } };
 
         const MAP = { W: 1025, H: 620, ZOOM: 2.1 };
         let currentActiveCityId = null;
-        const totalMiles = tourData.reduce((sum, stop) => sum + stop.milesToNext, 0);
+        let totalMiles = tourData.reduce((sum, stop) => sum + stop.milesToNext, 0);
         const DEFAULT_SHOWTIME = '7:30 PM'; // shown until a city's time is edited
         let audioCtx = null;
 
@@ -2311,6 +2358,7 @@
 
         async function init() {
             loadState();
+            mergeCustomShows();
             await migrateLegacyPhotos();
             updateWelcomeMessage();
             annotateStates();
@@ -2369,10 +2417,19 @@
             startCountdownTicker();
 
             // Esc closes any open panel
-            document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAllPanels(); });
+            document.addEventListener('keydown', e => {
+                if (e.key !== 'Escape') return;
+                if (placementActive) cancelShowPlacement();
+                else closeAllPanels();
+            });
             // Backdrop click closes panels
             document.querySelectorAll('.panel-overlay[data-close-on-backdrop]').forEach(ov => {
-                ov.addEventListener('mousedown', e => { if (e.target === ov) { if (ov.id === 'city-panel-overlay') closeCityPanel(); else ov.classList.remove('active'); } });
+                ov.addEventListener('mousedown', e => {
+                    if (e.target !== ov) return;
+                    if (ov.id === 'city-panel-overlay') closeCityPanel();
+                    else if (ov.id === 'add-show-overlay') cancelAddShow();
+                    else ov.classList.remove('active');
+                });
             });
             document.getElementById('reset-dialog').addEventListener('mousedown', e => { if (e.target.id === 'reset-dialog') closeResetDialog(); });
 
@@ -2432,12 +2489,84 @@
             if (!state || typeof state !== 'object') state = {};
             if (!state.cityDetails) state.cityDetails = {};
             if (!Array.isArray(state.completedCities)) state.completedCities = [];
+            if (!Array.isArray(state.customShows)) state.customShows = [];
+            if (!state.mileageOverrides || typeof state.mileageOverrides !== 'object') state.mileageOverrides = {};
             state.dragonflyFound = state.dragonflyFound === true;   // predates older saves
             if (!state.profile || typeof state.profile !== 'object') state.profile = {};
             if (typeof state.profile.name !== 'string') state.profile.name = '';
             if (!Array.isArray(state.profile.instruments)) state.profile.instruments = [];
             state.settings = normalizeSettings(state.settings);
             migrateCityDetails(state.cityDetails);
+        }
+
+        /* ---------------- USER-ADDED SHOWS ----------------
+           state.customShows holds any shows added via "Add a Show", each shaped exactly
+           like a tourData entry plus `custom: true`. tourData itself is mutated in place
+           (never reassigned) here so every one of its many existing readers — route lines,
+           achievements, search, timeline, stats — automatically sees the merged, date-
+           sorted result with no changes needed anywhere else.
+
+           A custom show's *own* outgoing milesToNext lives directly on its object (it's
+           fully persisted as part of state.customShows). A *baseline* stop's milesToNext
+           can't be edited that way — the literal objects in BASE_TOUR_DATA are recreated
+           fresh from the hardcoded array on every reload — so recalculating the leg out of
+           a baseline stop (because a custom show got inserted right after it) is tracked
+           separately in state.mileageOverrides and reapplied here after every merge. */
+        function mergeCustomShows() {
+            tourData.length = 0;
+            tourData.push(...BASE_TOUR_DATA, ...state.customShows);
+            tourData.sort((a, b) => (parseShowDate(a.date) || 0) - (parseShowDate(b.date) || 0));
+            for (const id in state.mileageOverrides) {
+                const stop = tourData.find(s => s.id === id);
+                if (stop) stop.milesToNext = state.mileageOverrides[id];
+            }
+            totalMiles = tourData.reduce((sum, stop) => sum + (stop.milesToNext || 0), 0);
+            mkStopsCache = null;   // stop order may have changed — boss/achievement placement must recompute
+        }
+
+        function slugify(s) {
+            return String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'show';
+        }
+        function generateShowId(city) {
+            const base = 'custom-' + slugify(String(city).split(',')[0]);
+            const existingIds = new Set(tourData.map(s => s.id));
+            if (!existingIds.has(base)) return base;
+            let n = 2;
+            while (existingIds.has(`${base}-${n}`)) n++;
+            return `${base}-${n}`;
+        }
+        // "2026-09-25" (from <input type="date">) -> "Sep 25, 2026", matching the format
+        // every baked-in stop's `date` string already uses.
+        function formatShowDateString(isoDateStr) {
+            const [y, m, d] = isoDateStr.split('-').map(Number);
+            return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        }
+
+        const TZ_OPTIONS = [
+            { id: 'America/New_York', label: 'Eastern' },
+            { id: 'America/Chicago', label: 'Central' },
+            { id: 'America/Denver', label: 'Mountain' },
+            { id: 'America/Phoenix', label: 'Mountain — no DST (Arizona)' },
+            { id: 'America/Los_Angeles', label: 'Pacific' },
+            { id: 'America/Anchorage', label: 'Alaska' },
+            { id: 'Pacific/Honolulu', label: 'Hawaii' }
+        ];
+
+        /* Real driving distance via OSRM's free public routing API (no key, same "free
+           demo service, light one-off use" posture as the Nominatim geocoder above) —
+           only ever called from the Add/Edit Show save flow, gated behind an explicit
+           confirm() so it's never a silent background network request. Returns null
+           (never throws) on any failure, matching every other network call in this app. */
+        async function drivingMiles(a, b) {
+            if (a.lat == null || a.lon == null || b.lat == null || b.lon == null) return null;
+            try {
+                const url = `https://router.project-osrm.org/route/v1/driving/${a.lon},${a.lat};${b.lon},${b.lat}?overview=false`;
+                const res = await fetch(url);
+                if (!res.ok) throw new Error('route ' + res.status);
+                const data = await res.json();
+                const meters = data && data.routes && data.routes[0] && data.routes[0].distance;
+                return typeof meters === 'number' ? Math.round(meters / 1609.344) : null;
+            } catch (e) { return null; }
         }
 
         function saveState() {
@@ -2722,8 +2851,8 @@
                 btn.innerHTML = `
                     <span class="ss-day"><span class="ss-mon">${mon}</span><span class="ss-dnum">${dnum}</span></span>
                     <span class="ss-body">
-                        <span class="ss-city">${stop.city.split(',')[0]}</span>
-                        <span class="ss-venue">${stop.venue}</span>
+                        <span class="ss-city">${statEsc(stop.city.split(',')[0])}</span>
+                        <span class="ss-venue">${statEsc(stop.venue)}</span>
                         <span class="ss-tag">${wk} · ${isDone ? '✓ Played' : (isNext ? 'Up next' : 'Upcoming')}</span>
                     </span>`;
                 btn.addEventListener('click', () => { closePanel('state-overlay'); openCityPanel(stop.id); });
@@ -3404,6 +3533,16 @@
         function svgToContainer(x, y, fit) {
             const f = fit || svgFit();
             return { px: f.ox + x * f.s, py: f.oy + y * f.s };
+        }
+        // Inverse of svgToContainer, additionally undoing the live pan/zoom transform —
+        // turns a raw mouse click on the map into the same x/y units tourData stops use.
+        // Used only by "Add a Show"'s click-to-place.
+        function clientPointToSvg(clientX, clientY) {
+            const r = mapCont.getBoundingClientRect();
+            const containerPx = (clientX - r.left - transX) / viewScale;
+            const containerPy = (clientY - r.top - transY) / viewScale;
+            const f = svgFit();
+            return { x: (containerPx - f.ox) / f.s, y: (containerPy - f.oy) / f.s };
         }
         function centerOnSvgPoint(x, y, smooth = true) {
             const f = svgFit();
@@ -4198,7 +4337,7 @@
                 div.setAttribute('aria-label', `${stop.city}, ${stop.date}${hasEntry ? ', has a logged entry' : ''}`);
                 const showtime = showTimeWithZone(stop, state.cityDetails[stop.id] && state.cityDetails[stop.id].showtime);
                 div.title = 'Showtime is venue-local (' + (stop.tz || DEFAULT_TZ) + ')' + (hasEntry ? ' — has a logged entry' : '');
-                div.innerHTML = `<div class="timeline-date">${stop.date}</div><div class="timeline-city">${stop.city.split(',')[0]}</div><div class="timeline-time">${showtime}</div>${hasEntry ? '<span class="tl-entry-dot"></span>' : ''}`;
+                div.innerHTML = `<div class="timeline-date">${statEsc(stop.date)}</div><div class="timeline-city">${statEsc(stop.city.split(',')[0])}</div><div class="timeline-time">${statEsc(showtime)}</div>${hasEntry ? '<span class="tl-entry-dot"></span>' : ''}`;
                 div.addEventListener('click', () => openCityPanel(stop.id));
                 div.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openCityPanel(stop.id); } });
 
@@ -4558,7 +4697,7 @@
                 cicMap.setView([lat, lon], 15);
                 if (cicMarker) cicMap.removeLayer(cicMarker);
                 cicMarker = L.marker([lat, lon], { icon: venuePinIcon(), title: stop.venue, riseOnHover: true }).addTo(cicMap);
-                cicMarker.bindPopup(`<b>${stop.venue}</b><br>${stop.city}`);
+                cicMarker.bindPopup(`<b>${statEsc(stop.venue)}</b><br>${statEsc(stop.city)}`);
                 addrEl.textContent = addr || currentVenueAddress;
                 currentVenueAddress = addr || `${stop.venue}, ${stop.city}`;
                 setDirections(`${lat},${lon}`);
@@ -4601,11 +4740,258 @@
             }
         }
 
+        /* ---------------- ADD / EDIT A SHOW ----------------
+           addShowDraft holds the in-progress form values across the close/reopen that
+           "Place on Map" does (the map has to be fully visible and clickable, which the
+           form's own full-screen overlay backdrop otherwise blocks — see mapCont's own
+           mousedown handler above, which already ignores clicks that started as a drag). */
+        let addShowDraft = null;
+        let editingShowId = null;
+        let placementActive = false;
+
+        function populateAddShowSelects() {
+            const stateSel = document.getElementById('as-state');
+            if (stateSel.options.length <= 1) {
+                for (const abbr in STATE_NAMES) {
+                    const opt = document.createElement('option');
+                    opt.value = abbr; opt.textContent = STATE_NAMES[abbr];
+                    stateSel.appendChild(opt);
+                }
+            }
+            const tzSel = document.getElementById('as-tz');
+            if (!tzSel.options.length) {
+                TZ_OPTIONS.forEach(tz => {
+                    const opt = document.createElement('option');
+                    opt.value = tz.id; opt.textContent = tz.label;
+                    tzSel.appendChild(opt);
+                });
+            }
+        }
+
+        function updateAddShowSaveEnabled() {
+            const ready = document.getElementById('as-city').value.trim()
+                && document.getElementById('as-state').value
+                && document.getElementById('as-venue').value.trim()
+                && document.getElementById('as-date').value
+                && addShowDraft && addShowDraft.x != null;
+            document.getElementById('as-save-btn').disabled = !ready;
+        }
+
+        function refreshPlacementStatus() {
+            const status = document.getElementById('as-placement-status');
+            const btn = status.nextElementSibling;
+            const placed = addShowDraft && addShowDraft.x != null;
+            status.textContent = placed ? 'Placed on the map ✓' : 'Not yet placed on the map.';
+            if (btn) btn.textContent = placed ? 'Change Placement' : 'Place on Map';
+        }
+
+        function openAddShow() {
+            populateAddShowSelects();
+            editingShowId = null;
+            if (!addShowDraft) {
+                addShowDraft = {};
+                document.getElementById('as-city').value = '';
+                document.getElementById('as-state').value = '';
+                document.getElementById('as-venue').value = '';
+                document.getElementById('as-date').value = '';
+                document.getElementById('as-time').value = '';
+                document.getElementById('as-tz').value = 'America/New_York';
+            }
+            document.getElementById('as-title').textContent = 'Add a Show';
+            document.getElementById('as-save-btn').textContent = 'Save Show';
+            refreshPlacementStatus();
+            updateAddShowSaveEnabled();
+            document.getElementById('add-show-overlay').classList.add('active');
+        }
+
+        function openEditShow(id) {
+            const stop = tourData.find(s => s.id === id);
+            if (!stop || !stop.custom) return;
+            closeCityPanel();
+            populateAddShowSelects();
+            editingShowId = id;
+            addShowDraft = { x: stop.x, y: stop.y };
+            document.getElementById('as-title').textContent = 'Edit Show';
+            document.getElementById('as-save-btn').textContent = 'Save Changes';
+            document.getElementById('as-city').value = stop.city.split(',')[0];
+            document.getElementById('as-state').value = stop.stateId;
+            document.getElementById('as-venue').value = stop.venue;
+            const d = parseShowDate(stop.date);
+            // Build the y-m-d from local components (not toISOString(), which can shift
+            // the date by a day for timezones east of UTC) — matches dayNumber()'s approach.
+            document.getElementById('as-date').value = d
+                ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` : '';
+            document.getElementById('as-time').value = stop.time || '';
+            document.getElementById('as-tz').value = stop.tz || 'America/New_York';
+            refreshPlacementStatus();
+            updateAddShowSaveEnabled();
+            document.getElementById('add-show-overlay').classList.add('active');
+        }
+
+        function captureAddShowDraftFields() {
+            addShowDraft = addShowDraft || {};
+            addShowDraft.city = document.getElementById('as-city').value.trim();
+            addShowDraft.stateId = document.getElementById('as-state').value;
+            addShowDraft.venue = document.getElementById('as-venue').value.trim();
+            addShowDraft.dateInput = document.getElementById('as-date').value;
+            addShowDraft.time = document.getElementById('as-time').value.trim();
+            addShowDraft.tz = document.getElementById('as-tz').value;
+        }
+
+        function handlePlacementClick(e) {
+            if (dragMoved) return;   // let a pan-ending click pass through untouched
+            // Registered on the capture phase (see startShowPlacement) specifically so this
+            // runs — and can stop the click — before it reaches a state-path or city-marker
+            // element, both of which call stopPropagation() in their own bubble-phase click
+            // handlers (see annotateStates()) and would otherwise silently eat the click
+            // before it ever bubbled back up to a listener on mapCont itself.
+            e.stopPropagation();
+            if (e.target.closest('#city-markers')) return;   // ignore clicks on existing markers
+            const p = clientPointToSvg(e.clientX, e.clientY);
+            addShowDraft.x = clampNum(p.x, 0, MAP.W);
+            addShowDraft.y = clampNum(p.y, 0, MAP.H);
+            endShowPlacement();
+            reopenAddShowPanel();
+        }
+
+        function startShowPlacement() {
+            captureAddShowDraftFields();
+            closePanel('add-show-overlay');
+            placementActive = true;
+            const label = addShowDraft.city ? `${addShowDraft.city}${addShowDraft.stateId ? ', ' + addShowDraft.stateId : ''}` : 'this show';
+            document.getElementById('place-hint-text').textContent = `Click the map to place ${label}`;
+            document.getElementById('place-hint').style.display = 'flex';
+            mapCont.style.cursor = 'crosshair';
+            mapCont.addEventListener('click', handlePlacementClick, true);
+        }
+
+        function endShowPlacement() {
+            placementActive = false;
+            document.getElementById('place-hint').style.display = 'none';
+            mapCont.style.cursor = '';
+            mapCont.removeEventListener('click', handlePlacementClick, true);
+        }
+
+        function cancelShowPlacement() {
+            endShowPlacement();
+            reopenAddShowPanel();
+        }
+
+        function reopenAddShowPanel() {
+            document.getElementById('as-city').value = addShowDraft.city || '';
+            document.getElementById('as-state').value = addShowDraft.stateId || '';
+            document.getElementById('as-venue').value = addShowDraft.venue || '';
+            document.getElementById('as-date').value = addShowDraft.dateInput || '';
+            document.getElementById('as-time').value = addShowDraft.time || '';
+            document.getElementById('as-tz').value = addShowDraft.tz || 'America/New_York';
+            document.getElementById('as-title').textContent = editingShowId ? 'Edit Show' : 'Add a Show';
+            document.getElementById('as-save-btn').textContent = editingShowId ? 'Save Changes' : 'Save Show';
+            refreshPlacementStatus();
+            updateAddShowSaveEnabled();
+            document.getElementById('add-show-overlay').classList.add('active');
+        }
+
+        function cancelAddShow() {
+            closePanel('add-show-overlay');
+            addShowDraft = null;
+            editingShowId = null;
+        }
+
+        async function saveAddShow() {
+            const saveBtn = document.getElementById('as-save-btn');
+            if (saveBtn.disabled) return;
+            captureAddShowDraftFields();
+            const wasEditing = !!editingShowId;
+            const cityText = addShowDraft.city;
+            const stateAbbr = addShowDraft.stateId;
+            const venueText = addShowDraft.venue;
+            const dateStr = formatShowDateString(addShowDraft.dateInput);
+            const timeText = addShowDraft.time || DEFAULT_SHOWTIME;
+            const tz = addShowDraft.tz || DEFAULT_TZ;
+            const cityCombined = `${cityText}, ${stateAbbr}`;
+            const id = wasEditing ? editingShowId : generateShowId(cityText);
+
+            saveBtn.disabled = true; saveBtn.textContent = 'Saving…';
+
+            // Best-effort geocode — same "refinement layer, never required" posture as the
+            // rest of the app's geocoding (see the THROTTLED GEOCODER section). Powers the
+            // live venue map / weather for this show too, not just the mileage prompt below.
+            let lat = null, lon = null;
+            try {
+                let arr = await nominatimLookup(`${venueText}, ${cityCombined}`);
+                if (!arr || !arr.length) arr = await nominatimLookup(cityCombined);
+                if (arr && arr.length) { lat = parseFloat(arr[0].lat); lon = parseFloat(arr[0].lon); }
+            } catch (e) {}
+
+            // Drop the old entry first so the neighbor lookup below reflects every *other*
+            // show, not this one's previous position.
+            if (wasEditing) state.customShows = state.customShows.filter(s => s.id !== id);
+
+            const newStop = {
+                id, time: timeText, city: cityCombined, stateId: stateAbbr, venue: venueText,
+                date: dateStr, x: addShowDraft.x, y: addShowDraft.y, offset: [0, -9], anchor: 'middle',
+                tz, custom: true
+            };
+            if (lat != null && lon != null) { newStop.lat = lat; newStop.lon = lon; }
+
+            const preview = BASE_TOUR_DATA.concat(state.customShows, [newStop])
+                .sort((a, b) => (parseShowDate(a.date) || 0) - (parseShowDate(b.date) || 0));
+            const idx = preview.findIndex(s => s.id === id);
+            const predecessor = idx > 0 ? preview[idx - 1] : null;
+            const successor = idx < preview.length - 1 ? preview[idx + 1] : null;
+
+            let distanceNote = '';
+            if ((predecessor || successor) && lat != null && lon != null) {
+                const wantsDistance = confirm('Calculate driving distance to the nearby show(s)? This requires an internet connection.');
+                if (wantsDistance) {
+                    let ok = true;
+                    if (predecessor && predecessor.lat != null && predecessor.lon != null) {
+                        const miles = await drivingMiles(predecessor, newStop);
+                        if (miles != null) state.mileageOverrides[predecessor.id] = miles; else ok = false;
+                    }
+                    if (successor && successor.lat != null && successor.lon != null) {
+                        const miles = await drivingMiles(newStop, successor);
+                        if (miles != null) newStop.milesToNext = miles; else ok = false;
+                    }
+                    if (!ok) distanceNote = ' (driving distance unavailable — check your connection)';
+                }
+            }
+
+            state.customShows.push(newStop);
+            saveState();
+            closePanel('add-show-overlay');
+            addShowDraft = null; editingShowId = null;
+            showToast((wasEditing ? 'Show updated ✓' : 'Show added ✓') + distanceNote, 'ok');
+            setTimeout(() => location.reload(), 900);   // let the toast be visible before the reload
+        }
+
+        async function removeCustomShow(id) {
+            const stop = tourData.find(s => s.id === id);
+            if (!stop || !stop.custom) return;
+            if (!confirm(`Remove ${stop.city.split(',')[0]}? This deletes any notes, photos, and receipts logged for this show.`)) return;
+            const idx = tourData.indexOf(stop);
+            const predecessor = idx > 0 ? tourData[idx - 1] : null;
+            state.customShows = state.customShows.filter(s => s.id !== id);
+            delete state.cityDetails[id];
+            state.completedCities = state.completedCities.filter(cid => cid !== id);
+            delete state.mileageOverrides[id];
+            if (predecessor) delete state.mileageOverrides[predecessor.id];
+            try { await PhotoStore.del(id); } catch (e) {}
+            try {
+                const receipts = await ReceiptStore.list(id);
+                for (const r of receipts) await ReceiptStore.del(id, r.id);
+            } catch (e) {}
+            saveState();
+            showToast('Show removed', 'warn');
+            setTimeout(() => location.reload(), 600);
+        }
+
         /* ---------------- CITY PANEL ---------------- */
         async function openCityPanel(id) {
             currentActiveCityId = id;
             const stop = tourData.find(s => s.id === id);
             const data = state.cityDetails[id] || {};
+            document.getElementById('panel-custom-controls').style.display = stop.custom ? 'flex' : 'none';
             document.getElementById('panel-city-name').textContent = stop.city;
             document.getElementById('panel-venue').textContent = stop.venue;
             const showDate = parseShowDate(stop.date);
@@ -4673,7 +5059,11 @@
         function closeCityPanel() { document.getElementById('city-panel-overlay').classList.remove('active'); saveCityData(false); }
         function closePanel(id) { document.getElementById(id).classList.remove('active'); }
         function closeAllPanels() {
-            document.querySelectorAll('.panel-overlay.active').forEach(ov => { if (ov.id === 'city-panel-overlay') closeCityPanel(); else ov.classList.remove('active'); });
+            document.querySelectorAll('.panel-overlay.active').forEach(ov => {
+                if (ov.id === 'city-panel-overlay') closeCityPanel();
+                else if (ov.id === 'add-show-overlay') cancelAddShow();
+                else ov.classList.remove('active');
+            });
             if (document.getElementById('onboarding').classList.contains('show')) dismissOnboarding();
             if (document.getElementById('reset-dialog').classList.contains('show')) closeResetDialog();
         }
@@ -4975,8 +5365,8 @@
                         <button type="button" class="receipt-remove" aria-label="Remove receipt" onclick="removeReceiptFromReview('${statEsc(stop.id)}','${statEsc(r.id)}')">&times;</button>
                     </div>`).join('');
                 return `<div class="log-entry">
-                    <h4 style="cursor:pointer" onclick="closePanel('receipts-overlay');openCityPanel('${statEsc(stop.id)}')">${stop.city} <span style="font-size:0.8rem;font-weight:normal;color:var(--stone);">(${list.length} receipt${list.length === 1 ? '' : 's'})</span></h4>
-                    <div class="log-date">${stop.date} &middot; ${stop.venue}</div>
+                    <h4 style="cursor:pointer" onclick="closePanel('receipts-overlay');openCityPanel('${statEsc(stop.id)}')">${statEsc(stop.city)} <span style="font-size:0.8rem;font-weight:normal;color:var(--stone);">(${list.length} receipt${list.length === 1 ? '' : 's'})</span></h4>
+                    <div class="log-date">${statEsc(stop.date)} &middot; ${statEsc(stop.venue)}</div>
                     <div class="receipt-grid" style="margin-top:10px">${thumbs}</div>
                 </div>`;
             }).join('');
@@ -5023,7 +5413,7 @@
                 ).join('');
                 const div = document.createElement('div');
                 div.className = 'log-entry';
-                div.innerHTML = `<h4>${stop.city} <span style="font-size:0.8rem;font-weight:normal;color:var(--stone);">(${stop.venue})</span></h4><div class="log-date">${stop.date}</div><div>${tags}</div>${notesHtml}`;
+                div.innerHTML = `<h4>${statEsc(stop.city)} <span style="font-size:0.8rem;font-weight:normal;color:var(--stone);">(${statEsc(stop.venue)})</span></h4><div class="log-date">${statEsc(stop.date)}</div><div>${tags}</div>${notesHtml}`;
                 list.appendChild(div);
             });
 
@@ -5045,7 +5435,7 @@
                     found = true;
                     const div = document.createElement('div');
                     div.className = 'log-entry fav-entry';
-                    div.innerHTML = `<h4>&#9733; ${stop.city}</h4><div class="log-date">${stop.date} &middot; ${stop.venue}</div>${d.notes ? `<p style="margin-top:8px;font-size:0.9rem;color:var(--stone);font-style:italic;">"${statEsc(d.notes)}"</p>` : ''}`;
+                    div.innerHTML = `<h4>&#9733; ${statEsc(stop.city)}</h4><div class="log-date">${statEsc(stop.date)} &middot; ${statEsc(stop.venue)}</div>${d.notes ? `<p style="margin-top:8px;font-size:0.9rem;color:var(--stone);font-style:italic;">"${statEsc(d.notes)}"</p>` : ''}`;
                     div.style.cursor = 'pointer';
                     div.onclick = () => { closePanel('favorites-overlay'); openCityPanel(stop.id); };
                     list.appendChild(div);
@@ -5068,7 +5458,7 @@
             tourData.forEach(stop => {
                 if (!photos[stop.id]) return;
                 const card = document.createElement('div'); card.className = 'gallery-card'; card.style.cursor = 'pointer';
-                card.innerHTML = `<img src="${statEsc(photos[stop.id])}" alt="${stop.city}"><div class="cap">${stop.city.split(',')[0]}<br><span style="color:var(--text-muted);font-size:0.72rem">${stop.date}</span></div>`;
+                card.innerHTML = `<img src="${statEsc(photos[stop.id])}" alt="${statEsc(stop.city)}"><div class="cap">${statEsc(stop.city.split(',')[0])}<br><span style="color:var(--text-muted);font-size:0.72rem">${statEsc(stop.date)}</span></div>`;
                 card.onclick = () => { closePanel('gallery-overlay'); openCityPanel(stop.id); };
                 grid.appendChild(card);
             });
