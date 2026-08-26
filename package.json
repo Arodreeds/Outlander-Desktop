@@ -1,17 +1,17 @@
 {
   "name": "outlander-tour-companion",
   "productName": "Outlander Tour Companion",
-  "version": "1.2.11",
+  "version": "1.2.12",
   "description": "Offline desktop companion for the Outlander in Concert tour.",
   "author": "Arodreeds",
   "main": "main.js",
   "private": true,
   "scripts": {
     "start": "electron .",
-    "dist": "electron-builder --mac --x64",
-    "dist:universal": "electron-builder --mac --universal",
-    "dist:win": "electron-builder --win",
-    "dist:linux": "electron-builder --linux",
+    "dist": "electron-builder --mac --x64 --publish never",
+    "dist:universal": "electron-builder --mac --universal --publish never",
+    "dist:win": "electron-builder --win --publish never",
+    "dist:linux": "electron-builder --linux --publish never",
     "test": "node e2e_test.js && node e2e_migration_test.js && node e2e_corrupted_save_test.js && node e2e_save_folder_test.js && node e2e_storage_failure_test.js && node e2e_update_test.js && node e2e_update_failure_test.js && node e2e_feature_smoke_test.js",
     "test:packaged": "node e2e_packaged_test.js"
   },
