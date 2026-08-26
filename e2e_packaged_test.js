@@ -2,8 +2,15 @@ const path = require('path');
 const { launch, cleanupTestRoot, Suite } = require('./e2e_helpers');
 
 (async () => {
-    const t = new Suite('e2e_packaged_test (built .app smoke test)');
-    const appPath = path.join(__dirname, 'dist/mac/Outlander Tour Companion.app/Contents/MacOS/Outlander Tour Companion');
+    const t = new Suite('e2e_packaged_test (built app smoke test)');
+    const platformPaths = {
+        darwin: 'dist/mac/Outlander Tour Companion.app/Contents/MacOS/Outlander Tour Companion',
+        win32: 'dist/win-unpacked/Outlander Tour Companion.exe',
+        linux: 'dist/linux-unpacked/outlander-tour-companion',
+    };
+    const relativePath = platformPaths[process.platform];
+    if (!relativePath) throw new Error(`No packaged build path known for platform "${process.platform}"`);
+    const appPath = path.join(__dirname, relativePath);
     const { app, win, testRoot, consoleErrors } = await launch({ executablePath: appPath });
 
     const info = await win.evaluate(() => ({

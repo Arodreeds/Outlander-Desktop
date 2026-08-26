@@ -73,6 +73,16 @@ was not verified in this environment (only Intel hardware was available to
 test on), so treat it as unverified until you've actually launched the result
 on an Apple Silicon Mac.
 
+`npm run dist:win` (NSIS installer + portable .exe) and `npm run dist:linux`
+(AppImage) exist for local testing, but electron-builder can't reliably
+cross-compile these from macOS (the NSIS installer needs Wine; Linux
+packaging is happiest built on Linux). The real release path is the
+`.github/workflows/release.yml` GitHub Actions workflow: push a `v*` tag (or
+run it manually via "Run workflow" in the Actions tab) and it builds all
+three platforms natively on their own runners, then attaches every artifact
+to the GitHub Release for that tag — the same release the app's own
+"Check for Updates" points at.
+
 ## The security prompt your users will see (this is normal)
 
 This app is **not code-signed** — that requires a paid Apple Developer Program
@@ -91,6 +101,17 @@ This is a one-time step per install. If this friction becomes a real problem
 later, the fix is Apple notarization ($99/year Developer Program + running
 the build through `xcrun notarytool` before distributing) — genuinely
 optional, not required to ship.
+
+The Windows and Linux builds are unsigned for the same reason (no paid
+certificate):
+
+- **Windows**: first launch shows a blue "Windows protected your PC"
+  SmartScreen screen. Tell people to click **"More info"** → **"Run anyway"**.
+  One-time per install, same idea as the mac Gatekeeper prompt above.
+- **Linux (AppImage)**: after downloading, it needs the executable bit set
+  before it will run: `chmod +x "Outlander Tour Companion-*.AppImage"`, then
+  double-click or run it directly. This is standard for any unsigned
+  AppImage, not specific to this app.
 
 ## Test scripts (optional, not part of the shipped app)
 
